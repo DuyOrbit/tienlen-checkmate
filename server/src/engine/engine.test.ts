@@ -3,6 +3,7 @@ import { evaluateCombo, canBeat, checkToiTrang } from './evaluator.js';
 import { handleChopPointTransfer, finalizeRoundScores } from './scoring.js';
 import { PlayerState } from './types.js';
 import { AUGMENTS_CATALOG } from './augments.js';
+import { GameRoom } from '../rooms/gameRoom.js';
 
 function runTests() {
   console.log('=== TIẾN LÊN CHECKMATE ENGINE TEST SUITE ===');
@@ -130,7 +131,28 @@ function runTests() {
   console.assert(round3Result.checkmateWinner?.id === 'pA', 'Player A must win by Checkmate!');
   console.log('✔ Test 9: Luật Checkmate 16 điểm và Vô Địch Toàn Trận: PASSED');
 
-  console.log('🎉 TOÀN BỘ 9 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
+  // Test 10: State Redaction (Người A không bao giờ nhận được hand của người B)
+  const room = new GameRoom('TEST-1', null as any, () => {});
+  room.initVsBots('user-A', 'Player A');
+  const userARedacted = room.getRedactedState('user-A');
+  const userBRedacted = room.getRedactedState('bot-1');
+
+  // Verify user-A sees their own hand but bot hands are empty
+  const pAInAState = userARedacted.players.find((p) => p.id === 'user-A')!;
+  const pBInAState = userARedacted.players.find((p) => p.id === 'bot-1')!;
+  console.assert(pAInAState.hand.length === 13, 'User A must see their own 13 cards');
+  console.assert(pBInAState.hand.length === 0, 'User A must NOT see Bot 1 cards (empty hand)');
+  console.assert(pBInAState.handCount === 13, 'User A must see Bot 1 handCount = 13');
+
+  // Verify bot-1 (User B) sees their own hand but User A hand is empty
+  const pAInBState = userBRedacted.players.find((p) => p.id === 'user-A')!;
+  const pBInBState = userBRedacted.players.find((p) => p.id === 'bot-1')!;
+  console.assert(pAInBState.hand.length === 0, 'User B must NOT see User A cards (empty hand)');
+  console.assert(pAInBState.handCount === 13, 'User B must see User A handCount = 13');
+  console.assert(pBInBState.hand.length === 13, 'User B must see their own cards');
+  console.log('✔ Test 10: Redact State bảo mật bài đối thủ: PASSED');
+
+  console.log('🎉 TOÀN BỘ 10 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 
 runTests();

@@ -55,6 +55,7 @@ export interface PlayerState {
   isBot: boolean;
   avatarSeed: string;
   hand: Card[];
+  handCount?: number; // Số lá bài còn lại (được gửi cho đối thủ khi hand bị ẩn)
   rankInRound: number | null; // 1, 2, 3, 4 (null if still playing)
   totalPoints: number; // Cumulative match points
   activeAugments: PlayerActiveAugment[];
@@ -105,4 +106,3 @@ export interface MatchState {
   augmentChoices: Record<string, Augment[]>; // playerId -> 3 random choices
   winnerId: string | null; // Final checkmate winner
 }
-

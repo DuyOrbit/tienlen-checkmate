@@ -538,6 +538,25 @@ export class GameRoom {
     }
   }
 
+  public getRedactedState(forPlayerId: string): MatchState {
+    return {
+      ...this.state,
+      players: this.state.players.map((p) => {
+        const isSelf = p.id === forPlayerId;
+        return {
+          ...p,
+          handCount: p.hand ? p.hand.length : (p.handCount ?? 0),
+          hand: isSelf ? p.hand : [],
+        };
+      }),
+      augmentChoices: {
+        ...(this.state.augmentChoices && this.state.augmentChoices[forPlayerId]
+          ? { [forPlayerId]: this.state.augmentChoices[forPlayerId] }
+          : {}),
+      },
+    };
+  }
+
   private broadcast() {
     this.onStateChange(this.state);
   }

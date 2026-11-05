@@ -62,6 +62,21 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', createAuthRouter(prisma));
 app.use('/api/admin', createAdminRouter(prisma));
 
+// Phát trạng thái game được lọc riêng (redacted) cho từng socket trong phòng
+function broadcastRoomState(room: GameRoom) {
+  const roomCode = room.state.roomCode;
+  const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+  if (!roomSockets) return;
+
+  for (const socketId of roomSockets) {
+    const s = io.sockets.sockets.get(socketId);
+    if (s) {
+      const playerId = s.data?.playerId || (s as any).playerId;
+      s.emit('game_state', room.getRedactedState(playerId));
+    }
+  }
+}
+
 // Socket.io handlers
 io.on('connection', (socket) => {
   console.log(`[SOCKET] Client connected: ${socket.id}`);
@@ -71,8 +86,8 @@ io.on('connection', (socket) => {
     const roomCode = `BOT-${socket.id.substring(0, 5).toUpperCase()}`;
     socket.join(roomCode);
 
-    const room = new GameRoom(roomCode, prisma, (state) => {
-      io.to(roomCode).emit('game_state', state);
+    const room = new GameRoom(roomCode, prisma, () => {
+      broadcastRoomState(room);
     });
 
     rooms.set(roomCode, room);
@@ -80,7 +95,7 @@ io.on('connection', (socket) => {
     (socket as any).playerId = data.playerId;
 
     room.initVsBots(data.playerId, data.playerName);
-    socket.emit('game_state', room.state);
+    socket.emit('game_state', room.getRedactedState(data.playerId));
     console.log(`[GAME] Started bot match ${roomCode} for ${data.playerName}`);
   });
 
@@ -90,8 +105,8 @@ io.on('connection', (socket) => {
     const roomCode = `CM${randomSuffix}`;
     socket.join(roomCode);
 
-    const room = new GameRoom(roomCode, prisma, (state) => {
-      io.to(roomCode).emit('game_state', state);
+    const room = new GameRoom(roomCode, prisma, () => {
+      broadcastRoomState(room);
     });
 
     rooms.set(roomCode, room);
@@ -99,7 +114,7 @@ io.on('connection', (socket) => {
     (socket as any).playerId = data.playerId;
 
     room.initCustomRoom(data.playerId, data.playerName);
-    socket.emit('game_state', room.state);
+    socket.emit('game_state', room.getRedactedState(data.playerId));
     console.log(`[GAME] Created custom room ${roomCode} by ${data.playerName}`);
     if (callback) callback({ success: true, roomCode });
   });
@@ -118,7 +133,7 @@ io.on('connection', (socket) => {
 
     const res = room.addPlayer(data.playerId, data.playerName);
     if (res.success) {
-      socket.emit('game_state', room.state);
+      socket.emit('game_state', room.getRedactedState(data.playerId));
     }
     if (callback) callback(res);
   });

@@ -47,6 +47,7 @@ export interface PlayerState {
   isBot: boolean;
   avatarSeed: string;
   hand: Card[];
+  handCount?: number; // Số lá bài đối thủ còn lại
   rankInRound: number | null;
   totalPoints: number;
   activeAugments: PlayerActiveAugment[];
@@ -109,4 +110,3 @@ export interface AuthUser {
     totalPoints: number;
   };
 }
-

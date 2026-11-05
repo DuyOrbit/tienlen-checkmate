@@ -18,7 +18,7 @@ export const PlayerSeat: React.FC<PlayerSeatProps> = ({
   lastActionText,
 }) => {
   const [hoveredAugment, setHoveredAugment] = useState<string | null>(null);
-  const cardCount = player.hand.length;
+  const cardCount = player.handCount ?? player.hand.length;
   const isPurged = player.totalPoints >= 12;
   const isCheckmate = player.totalPoints >= 16;
 

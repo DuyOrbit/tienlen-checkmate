@@ -1,6 +1,7 @@
 {
   "name": "tienlen-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "Backend server for Tiến Lên Checkmate",
   "main": "dist/server.js",
   "scripts": {
