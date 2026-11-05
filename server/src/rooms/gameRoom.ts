@@ -645,7 +645,6 @@ export class GameRoom {
   private async saveMatchToDb() {
     try {
       console.log(`[DB] Saving match ${this.state.matchId} to MySQL...`);
-      const human = this.state.players.find((p) => !p.isBot);
 
       await this.prisma.match.create({
         data: {
@@ -666,27 +665,31 @@ export class GameRoom {
         },
       });
 
-      // Update human player stats if authenticated user
-      if (human && !human.id.startsWith('guest-') && !human.id.startsWith('bot-')) {
-        const isWinner = human.id === this.state.winnerId;
+      // Update stats for all registered human players (not bot, not guest)
+      const registeredPlayers = this.state.players.filter(
+        (p) => !p.isBot && !p.id.startsWith('guest-') && !p.id.startsWith('bot-')
+      );
+
+      for (const player of registeredPlayers) {
+        const isWinner = player.id === this.state.winnerId;
         await this.prisma.userStats.upsert({
-          where: { userId: human.id },
+          where: { userId: player.id },
           create: {
-            userId: human.id,
+            userId: player.id,
             matchesPlayed: 1,
             checkmateWins: isWinner ? 1 : 0,
-            top1Count: human.rankInRound === 1 ? 1 : 0,
-            totalPoints: human.totalPoints,
+            top1Count: player.rankInRound === 1 ? 1 : 0,
+            totalPoints: player.totalPoints,
           },
           update: {
             matchesPlayed: { increment: 1 },
             checkmateWins: isWinner ? { increment: 1 } : undefined,
-            top1Count: human.rankInRound === 1 ? { increment: 1 } : undefined,
-            totalPoints: { increment: human.totalPoints },
+            top1Count: player.rankInRound === 1 ? { increment: 1 } : undefined,
+            totalPoints: { increment: player.totalPoints },
           },
         });
       }
-      console.log(`[DB] Match ${this.state.matchId} saved successfully.`);
+      console.log(`[DB] Match ${this.state.matchId} saved successfully for ${registeredPlayers.length} registered player(s).`);
     } catch (err: any) {
       console.error(`[DB ERROR] Failed to save match:`, err.message);
     }
