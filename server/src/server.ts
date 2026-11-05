@@ -6,6 +6,7 @@ import { execSync } from 'child_process';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { ensureDatabaseExists, seedDefaultAdmin } from './db/initDb.js';
 import { createAuthRouter } from './auth/authRoutes.js';
@@ -55,11 +56,48 @@ const prisma = new PrismaClient({
 const rooms: Map<string, GameRoom> = new Map();
 
 // Setup Socket.io - Cho phép cả WampServer (http://localhost), Port 3001 và Vite (5173)
-const io = new SocketIOServer(server, {
+interface SocketData {
+  playerId: string;
+  playerName: string;
+  isGuest: boolean;
+  roomCode?: string;
+}
+
+const io = new SocketIOServer<any, any, any, SocketData>(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST'],
   },
+});
+
+const jwtSecret = process.env.JWT_SECRET || 'tienlen_cyberpunk_super_secret_key_2026';
+
+// Middleware xác thực danh tính Socket qua handshake JWT hoặc cấp guestId an toàn từ server
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (token && typeof token === 'string') {
+    jwt.verify(token, jwtSecret, (err: any, decoded: any) => {
+      if (!err && decoded && decoded.id) {
+        socket.data.playerId = decoded.id;
+        socket.data.playerName = decoded.username || 'Người chơi';
+        socket.data.isGuest = false;
+        return next();
+      }
+      // Token không hợp lệ hoặc hết hạn -> cấp guestId mới từ server
+      const guestId = `guest-${Math.random().toString(36).substring(2, 9)}`;
+      socket.data.playerId = guestId;
+      socket.data.playerName = 'Khách';
+      socket.data.isGuest = true;
+      next();
+    });
+  } else {
+    // Không có token -> cấp guestId mới từ server
+    const guestId = `guest-${Math.random().toString(36).substring(2, 9)}`;
+    socket.data.playerId = guestId;
+    socket.data.playerName = 'Khách';
+    socket.data.isGuest = true;
+    next();
+  }
 });
 
 // REST Routes
@@ -85,12 +123,23 @@ function broadcastRoomState(room: GameRoom) {
   }
 }
 
+type ActionCallback = (res: { success: boolean; message?: string; roomCode?: string }) => void;
+
 // Socket.io handlers
 io.on('connection', (socket) => {
-  console.log(`[SOCKET] Client connected: ${socket.id}`);
+  console.log(`[SOCKET] Client connected: ${socket.id} (${socket.data.playerId}, guest=${socket.data.isGuest})`);
+
+  // Gửi thông tin session đã được server xác thực về cho client
+  socket.emit('session_init', {
+    playerId: socket.data.playerId,
+    playerName: socket.data.playerName,
+    isGuest: socket.data.isGuest,
+  });
 
   // 1. Chơi với Bot (Singleplayer / Quick Match)
-  socket.on('start_bot_game', (data: { playerId: string; playerName: string }) => {
+  socket.on('start_bot_game', (data?: { playerName?: string }) => {
+    const playerId = socket.data.playerId;
+    const playerName = !socket.data.isGuest ? socket.data.playerName : (data?.playerName?.trim() || 'Khách');
     const roomCode = `BOT-${socket.id.substring(0, 5).toUpperCase()}`;
     socket.join(roomCode);
 
@@ -99,16 +148,17 @@ io.on('connection', (socket) => {
     });
 
     rooms.set(roomCode, room);
-    (socket as any).roomCode = roomCode;
-    (socket as any).playerId = data.playerId;
+    socket.data.roomCode = roomCode;
 
-    room.initVsBots(data.playerId, data.playerName);
-    socket.emit('game_state', room.getRedactedState(data.playerId));
-    console.log(`[GAME] Started bot match ${roomCode} for ${data.playerName}`);
+    room.initVsBots(playerId, playerName);
+    socket.emit('game_state', room.getRedactedState(playerId));
+    console.log(`[GAME] Started bot match ${roomCode} for ${playerName} (${playerId})`);
   });
 
   // 2. Tạo Phòng Chờ Bạn Bè (Custom Room)
-  socket.on('create_custom_room', (data: { playerId: string; playerName: string }, callback) => {
+  socket.on('create_custom_room', (data: { playerName?: string } | undefined, callback?: ActionCallback) => {
+    const playerId = socket.data.playerId;
+    const playerName = !socket.data.isGuest ? socket.data.playerName : (data?.playerName?.trim() || 'Khách');
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const roomCode = `CM${randomSuffix}`;
     socket.join(roomCode);
@@ -118,38 +168,43 @@ io.on('connection', (socket) => {
     });
 
     rooms.set(roomCode, room);
-    (socket as any).roomCode = roomCode;
-    (socket as any).playerId = data.playerId;
+    socket.data.roomCode = roomCode;
 
-    room.initCustomRoom(data.playerId, data.playerName);
-    socket.emit('game_state', room.getRedactedState(data.playerId));
-    console.log(`[GAME] Created custom room ${roomCode} by ${data.playerName}`);
+    room.initCustomRoom(playerId, playerName);
+    socket.emit('game_state', room.getRedactedState(playerId));
+    console.log(`[GAME] Created custom room ${roomCode} by ${playerName} (${playerId})`);
     if (callback) callback({ success: true, roomCode });
   });
 
   // 3. Tham gia phòng bằng Mã Phòng
-  socket.on('join_custom_room', (data: { roomCode: string; playerId: string; playerName: string }, callback) => {
+  socket.on('join_custom_room', (data: { roomCode: string; playerName?: string }, callback?: ActionCallback) => {
+    if (!data?.roomCode) {
+      if (callback) callback({ success: false, message: 'Vui lòng cung cấp mã phòng!' });
+      return;
+    }
     const code = data.roomCode.trim().toUpperCase();
     const room = rooms.get(code);
     if (!room) {
       if (callback) callback({ success: false, message: 'Không tìm thấy phòng với mã này!' });
       return;
     }
-    socket.join(code);
-    (socket as any).roomCode = code;
-    (socket as any).playerId = data.playerId;
+    const playerId = socket.data.playerId;
+    const playerName = !socket.data.isGuest ? socket.data.playerName : (data?.playerName?.trim() || 'Khách');
 
-    const res = room.addPlayer(data.playerId, data.playerName);
+    socket.join(code);
+    socket.data.roomCode = code;
+
+    const res = room.addPlayer(playerId, playerName);
     if (res.success) {
-      socket.emit('game_state', room.getRedactedState(data.playerId));
+      socket.emit('game_state', room.getRedactedState(playerId));
     }
     if (callback) callback(res);
   });
 
   // 4. Thêm Bot vào phòng chờ
-  socket.on('add_bot_to_room', (callback) => {
-    const roomCode = (socket as any).roomCode;
-    const room = rooms.get(roomCode);
+  socket.on('add_bot_to_room', (callback?: ActionCallback) => {
+    const roomCode = socket.data.roomCode;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
     if (room && room.state.phase === 'WAITING') {
       const res = room.addBot();
       if (callback) callback(res);
@@ -157,9 +212,9 @@ io.on('connection', (socket) => {
   });
 
   // 5. Bắt đầu ván đấu từ phòng chờ
-  socket.on('start_custom_game', (callback) => {
-    const roomCode = (socket as any).roomCode;
-    const room = rooms.get(roomCode);
+  socket.on('start_custom_game', (callback?: ActionCallback) => {
+    const roomCode = socket.data.roomCode;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
     if (room && room.state.phase === 'WAITING') {
       const res = room.startCustomMatch();
       if (callback) callback(res);
@@ -168,28 +223,28 @@ io.on('connection', (socket) => {
 
   // 6. Rời phòng
   socket.on('leave_room', () => {
-    const roomCode = (socket as any).roomCode;
+    const roomCode = socket.data.roomCode;
     if (roomCode) {
       socket.leave(roomCode);
-      delete (socket as any).roomCode;
+      delete socket.data.roomCode;
     }
   });
 
   // 7. Chọn Lõi
   socket.on('select_augment', (data: { augmentId: string }) => {
-    const roomCode = (socket as any).roomCode;
-    const playerId = (socket as any).playerId;
-    const room = rooms.get(roomCode);
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
     if (room && playerId) {
       room.selectAugment(playerId, data.augmentId);
     }
   });
 
   // 8. Đánh bài
-  socket.on('play_cards', (data: { cardIds: string[] }, callback) => {
-    const roomCode = (socket as any).roomCode;
-    const playerId = (socket as any).playerId;
-    const room = rooms.get(roomCode);
+  socket.on('play_cards', (data: { cardIds: string[] }, callback?: ActionCallback) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
     if (room && playerId) {
       const result = room.playCards(playerId, data.cardIds);
       if (callback) callback(result);
@@ -197,10 +252,10 @@ io.on('connection', (socket) => {
   });
 
   // 9. Bỏ lượt
-  socket.on('pass_turn', (callback) => {
-    const roomCode = (socket as any).roomCode;
-    const playerId = (socket as any).playerId;
-    const room = rooms.get(roomCode);
+  socket.on('pass_turn', (callback?: ActionCallback) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
     if (room && playerId) {
       const result = room.passTurn(playerId);
       if (callback) callback(result);
@@ -209,8 +264,8 @@ io.on('connection', (socket) => {
 
   // 10. Tiếp tục round mới
   socket.on('next_round', () => {
-    const roomCode = (socket as any).roomCode;
-    const room = rooms.get(roomCode);
+    const roomCode = socket.data.roomCode;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
     if (room && room.state.phase === 'ROUND_END') {
       room.startNewRound();
     }

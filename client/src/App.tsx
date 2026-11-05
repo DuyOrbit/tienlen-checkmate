@@ -54,6 +54,7 @@ export const App: React.FC = () => {
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [actionError, setActionError] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [serverAssignedId, setServerAssignedId] = useState<string | null>(null);
 
   const [sessionGuestId] = useState(() => {
     let id = sessionStorage.getItem('tienlen_guest_id');
@@ -64,7 +65,7 @@ export const App: React.FC = () => {
     return id;
   });
 
-  const getPlayerId = () => currentUser?.id || sessionGuestId;
+  const getPlayerId = () => currentUser?.id || serverAssignedId || sessionGuestId;
   const getPlayerName = () => currentUser?.username || guestName || 'Mèo Mập';
 
   // 1. Check logged in user profile if token exists
@@ -92,6 +93,9 @@ export const App: React.FC = () => {
   // 2. Connect to Socket.io
   useEffect(() => {
     const s = io(SOCKET_URL, {
+      auth: {
+        token: token || undefined,
+      },
       reconnectionAttempts: 10,
       timeout: 3000,
     });
@@ -102,6 +106,13 @@ export const App: React.FC = () => {
       console.log('Socket connected:', s.id);
       setIsConnected(true);
       setActionError('');
+    });
+
+    s.on('session_init', (data: { playerId: string; playerName: string; isGuest: boolean }) => {
+      setServerAssignedId(data.playerId);
+      if (data.isGuest) {
+        sessionStorage.setItem('tienlen_guest_id', data.playerId);
+      }
     });
 
     s.on('disconnect', () => {
@@ -124,24 +135,30 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Cập nhật xác thực Socket khi token đăng nhập thay đổi
+  useEffect(() => {
+    if (socket) {
+      socket.auth = { token: token || undefined };
+      socket.disconnect().connect();
+    }
+  }, [token]);
+
   // 3. Start Game vs Bots
   const handleStartBotGame = () => {
     if (!socket || !isConnected) {
       alert('⚠️ Đang kết nối tới máy chủ (port 3001)...\nVui lòng đợi vài giây và thử lại!');
       return;
     }
-    const playerId = getPlayerId();
     const name = getPlayerName();
-    socket.emit('start_bot_game', { playerId, playerName: name });
+    socket.emit('start_bot_game', { playerName: name });
   };
 
   // 4. Create Custom Room
   const handleCreateCustomRoom = () => {
-    const playerId = getPlayerId();
     const name = getPlayerName();
 
     if (socket && isConnected) {
-      socket.emit('create_custom_room', { playerId, playerName: name }, (res: any) => {
+      socket.emit('create_custom_room', { playerName: name }, (res: any) => {
         if (!res?.success) {
           alert(res?.message || 'Lỗi khi tạo phòng');
         }
@@ -156,7 +173,7 @@ export const App: React.FC = () => {
         phase: 'WAITING',
         players: [
           {
-            id: playerId,
+            id: getPlayerId(),
             name,
             isBot: false,
             avatarSeed: name,
@@ -187,13 +204,12 @@ export const App: React.FC = () => {
   const handleJoinRoom = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputRoomCode.trim()) return;
-    const playerId = getPlayerId();
     const name = getPlayerName();
 
     if (socket && isConnected) {
       socket.emit(
         'join_custom_room',
-        { roomCode: inputRoomCode.trim(), playerId, playerName: name },
+        { roomCode: inputRoomCode.trim(), playerName: name },
         (res: any) => {
           if (!res?.success) {
             alert(res?.message || 'Không tìm thấy phòng với mã này!');
@@ -230,7 +246,7 @@ export const App: React.FC = () => {
             beenChoppedCount: 0,
           },
           {
-            id: playerId,
+            id: getPlayerId(),
             name,
             isBot: false,
             avatarSeed: name,
