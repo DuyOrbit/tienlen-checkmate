@@ -29,7 +29,7 @@ export function createAuthRouter(prisma: PrismaClient) {
       });
 
       if (existing) {
-        return res.status(409).json({ error: 'Username or email already exists' });
+        return res.status(409).json({ error: 'Tên tài khoản hoặc email đã tồn tại' });
       }
 
       const salt = await bcrypt.genSalt(10);
@@ -71,7 +71,17 @@ export function createAuthRouter(prisma: PrismaClient) {
       });
     } catch (err: any) {
       console.error('Register error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      if (err.code === 'P1001' || err.message?.includes("Can't reach database server") || err.message?.includes('ECONNREFUSED')) {
+        return res.status(503).json({
+          error: 'Chưa kết nối được Database! Vui lòng cấu hình biến DATABASE_URL trên Render. (Hoặc chọn tab CHƠI THỬ để vào game ngay)',
+        });
+      }
+      if (err.code === 'P2021' || err.message?.includes("doesn't exist")) {
+        return res.status(503).json({
+          error: 'Bảng dữ liệu users chưa được tạo trong Database. Hãy chạy prisma db push.',
+        });
+      }
+      return res.status(500).json({ error: err.message || 'Lỗi kết nối cơ sở dữ liệu' });
     }
   });
 
@@ -89,16 +99,16 @@ export function createAuthRouter(prisma: PrismaClient) {
       });
 
       if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' });
       }
 
       if (user.isBanned) {
-        return res.status(403).json({ error: 'Account has been suspended by Admin' });
+        return res.status(403).json({ error: 'Tài khoản đã bị tạm khóa bởi Quản trị viên' });
       }
 
       const match = await bcrypt.compare(password, user.passwordHash);
       if (!match) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'Tên đăng nhập hoặc mật khẩu không chính xác' });
       }
 
       const token = jwt.sign(
@@ -120,7 +130,12 @@ export function createAuthRouter(prisma: PrismaClient) {
       });
     } catch (err: any) {
       console.error('Login error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      if (err.code === 'P1001' || err.message?.includes("Can't reach database server") || err.message?.includes('ECONNREFUSED')) {
+        return res.status(503).json({
+          error: 'Chưa kết nối được Database! Vui lòng cấu hình biến DATABASE_URL trên Render. (Hoặc chọn tab CHƠI THỬ để vào game ngay)',
+        });
+      }
+      return res.status(500).json({ error: err.message || 'Lỗi kết nối cơ sở dữ liệu' });
     }
   });
 
@@ -146,11 +161,10 @@ export function createAuthRouter(prisma: PrismaClient) {
 
       return res.json({ user });
     } catch (err: any) {
-      console.error('Profile error:', err);
+      console.error('Get profile error:', err);
       return res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   return router;
 }
-

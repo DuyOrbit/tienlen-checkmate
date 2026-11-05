@@ -6,34 +6,44 @@ import { PrismaClient, Role } from '@prisma/client';
 dotenv.config();
 
 export async function ensureDatabaseExists() {
-  const dbUrl = process.env.DATABASE_URL || 'mysql://root:@localhost:3306/tienlen_checkmate';
-  // Parse standard MySQL connection url: mysql://[user[:password]@][host][:port][/database]
-  const parsed = new URL(dbUrl);
-  const user = parsed.username || 'root';
-  const password = parsed.password || '';
-  const host = parsed.hostname || 'localhost';
-  const port = parseInt(parsed.port || '3306', 10);
-  const dbName = parsed.pathname.replace(/^\//, '') || 'tienlen_checkmate';
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    console.warn('[DB INIT WARNING] DATABASE_URL is not set. Database features will be disabled until configured.');
+    return false;
+  }
 
-  console.log(`[DB INIT] Connecting to MySQL at ${host}:${port} as ${user}...`);
   try {
+    const parsed = new URL(dbUrl);
+    const user = parsed.username || 'root';
+    const password = parsed.password || '';
+    const host = parsed.hostname || 'localhost';
+    const port = parseInt(parsed.port || '3306', 10);
+    const dbName = parsed.pathname.replace(/^\//, '') || 'tienlen_checkmate';
+    const isRemote = host !== 'localhost' && host !== '127.0.0.1';
+
+    console.log(`[DB INIT] Connecting to MySQL at ${host}:${port} as ${user}...`);
+
     const connection = await mysql.createConnection({
       host,
       port,
       user,
       password,
+      ssl: isRemote ? { minVersion: 'TLSv1.2', rejectUnauthorized: false } : undefined,
     });
 
     console.log(`[DB INIT] Ensuring database '${dbName}' exists...`);
-    await connection.query(
-      `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
-    );
+    try {
+      await connection.query(
+        `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
+      );
+    } catch (e: any) {
+      console.log(`[DB INIT NOTE] Database creation query note:`, e.message);
+    }
     await connection.end();
     console.log(`[DB INIT] Database '${dbName}' is ready!`);
     return true;
   } catch (err: any) {
     console.error(`[DB INIT ERROR] Failed to connect to MySQL:`, err.message);
-    console.error(`[DB TIP] Please make sure WampServer MySQL service is running on port ${port}.`);
     return false;
   }
 }
@@ -84,30 +94,16 @@ export async function seedDefaultAdmin(prisma: PrismaClient) {
           role: Role.USER,
           stats: {
             create: {
-              matchesPlayed: 5,
-              checkmateWins: 2,
-              top1Count: 3,
-              totalPoints: 34,
+              matchesPlayed: 0,
+              checkmateWins: 0,
+              totalPoints: 0,
             },
           },
         },
       });
-      console.log(`[SEED] Test user 'player1' created (password: player123)`);
+      console.log(`[SEED] Test player created: username = player1 (password: player123)`);
     }
   } catch (err: any) {
-    console.error(`[SEED ERROR]`, err.message);
+    console.error(`[SEED ERROR] Failed to seed admin/test users:`, err.message);
   }
 }
-
-// If run directly via `tsx src/db/initDb.ts`
-if (process.argv[1]?.includes('initDb')) {
-  (async () => {
-    const ok = await ensureDatabaseExists();
-    if (ok) {
-      const prisma = new PrismaClient();
-      await seedDefaultAdmin(prisma);
-      await prisma.$disconnect();
-    }
-  })();
-}
-
