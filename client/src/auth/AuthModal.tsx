@@ -46,7 +46,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onPlayAsGuest, 
         throw new Error(data.error || 'Thao tác không thành công');
       }
 
-      localStorage.setItem('tienlen_token', data.token);
+      sessionStorage.setItem('tienlen_token', data.token);
       onSuccess(data.user, data.token);
     } catch (err: any) {
       setError(err.message || 'Lỗi kết nối máy chủ');

@@ -38,11 +38,11 @@ export const App: React.FC = () => {
   const [gameState, setGameState] = useState<MatchState | null>(null);
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('tienlen_token'));
+  const [token, setToken] = useState<string | null>(sessionStorage.getItem('tienlen_token'));
   const [guestName, setGuestName] = useState<string | null>(() => {
     const urlParam = new URLSearchParams(window.location.search).get('name');
     if (urlParam) return urlParam;
-    return localStorage.getItem('tienlen_guest_name');
+    return sessionStorage.getItem('tienlen_guest_name') || localStorage.getItem('tienlen_guest_name');
   });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAdminView, setShowAdminView] = useState(false);
@@ -79,12 +79,12 @@ export const App: React.FC = () => {
           if (data.user) {
             setCurrentUser(data.user);
           } else {
-            localStorage.removeItem('tienlen_token');
+            sessionStorage.removeItem('tienlen_token');
             setToken(null);
           }
         })
         .catch(() => {
-          localStorage.removeItem('tienlen_token');
+          sessionStorage.removeItem('tienlen_token');
           setToken(null);
         });
     }
@@ -396,7 +396,7 @@ export const App: React.FC = () => {
 
   // Logout
   const handleLogout = () => {
-    localStorage.removeItem('tienlen_token');
+    sessionStorage.removeItem('tienlen_token');
     setToken(null);
     setCurrentUser(null);
     setShowAdminView(false);
