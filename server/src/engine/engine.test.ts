@@ -21,7 +21,10 @@ function runTests() {
   const c3d = deck.find((c) => c.rank === '3' && c.suit === 'diamonds')!;
   const c4s = deck.find((c) => c.rank === '4' && c.suit === 'spades')!;
   const c5s = deck.find((c) => c.rank === '5' && c.suit === 'spades')!;
-  const c2h = deck.find((c) => c.rank === '2' && c.suit === 'hearts')!; // Heo cơ
+  const c2s = deck.find((c) => c.rank === '2' && c.suit === 'spades')!; // Heo bích (đen)
+  const c2h = deck.find((c) => c.rank === '2' && c.suit === 'hearts')!; // Heo cơ (đỏ)
+  const c2d = deck.find((c) => c.rank === '2' && c.suit === 'diamonds')!; // Heo rô (đỏ)
+  const c2c = deck.find((c) => c.rank === '2' && c.suit === 'clubs')!; // Heo chuồn (đen)
 
   const single = evaluateCombo([c3s]);
   console.assert(single.type === 'SINGLE', 'Must evaluate single');
@@ -78,14 +81,35 @@ function runTests() {
     beenChoppedCount: 0,
   };
 
-  // Player A chặt Heo Đỏ của Player B -> cướp 2 điểm trực tiếp từ B
+  // Player A chặt Heo Đỏ của Player B bằng Tứ quý -> cướp 2 điểm trực tiếp từ B
   const transfer = handleChopPointTransfer(playerA, playerB, quad7, heoSingle);
   console.assert(transfer !== null, 'Transfer event must be generated');
   console.assert(playerA.totalPoints === 7, `Player A should have 7 pts, got ${playerA.totalPoints}`);
   console.assert(playerB.totalPoints === 6, `Player B should have 6 pts, got ${playerB.totalPoints}`);
-  console.log('✔ Test 4: Cướp điểm chặt Heo trực tiếp từ đối thủ: PASSED');
+  console.log('✔ Test 4: Cướp điểm chặt Heo bằng Hàng: PASSED');
 
-  // Test 5: Luật 12 điểm Chặn Lõi & Checkmate 16 điểm
+  // Test 5 (QUAN TRỌNG): Heo lớn đè Heo nhỏ KHÔNG ĐƯỢC TÍNH LÀ CHẶT HEO
+  const heoBlack = evaluateCombo([c2s]);
+  const heoRed = evaluateCombo([c2h]);
+  const invalidChop = handleChopPointTransfer(playerA, playerB, heoRed, heoBlack);
+  console.assert(invalidChop === null, 'Heo đè Heo KHÔNG được tính là chặt heo!');
+  console.log('✔ Test 5: Heo lớn đè Heo nhỏ bình thường (KHÔNG cướp điểm): PASSED');
+
+  // Test 6: Đôi Heo đè Đôi Heo KHÔNG ĐƯỢC TÍNH LÀ CHẶT HEO
+  const pairHeoBlack = evaluateCombo([c2s, c2c]);
+  const pairHeoRed = evaluateCombo([c2d, c2h]);
+  const invalidPairChop = handleChopPointTransfer(playerA, playerB, pairHeoRed, pairHeoBlack);
+  console.assert(invalidPairChop === null, 'Đôi heo đè đôi heo KHÔNG được tính là chặt heo!');
+  console.log('✔ Test 6: Đôi Heo đè Đôi Heo bình thường (KHÔNG cướp điểm): PASSED');
+
+  // Test 7: Tứ quý chặt Đôi Heo -> Cướp 3 điểm
+  const chopPairHeo = handleChopPointTransfer(playerA, playerB, quad7, pairHeoRed);
+  console.assert(chopPairHeo !== null && chopPairHeo.amount === 3, 'Tứ quý chặt đôi heo phải cướp 3 điểm!');
+  console.log('✔ Test 7: Tứ quý chặt Đôi Heo (+3 điểm): PASSED');
+
+  // Test 8: Luật 12 điểm Chặn Lõi & Checkmate 16 điểm
+  playerA.totalPoints = 7;
+  playerB.totalPoints = 6;
   playerA.rankInRound = 1; // Top 1 (+4 điểm -> 7 + 4 = 11đ)
   playerB.rankInRound = 2; // Top 2 (+2 điểm -> 6 + 2 = 8đ)
   const dummyP3: PlayerState = { ...playerA, id: 'p3', rankInRound: 3, totalPoints: 2 };
@@ -99,15 +123,14 @@ function runTests() {
   finalizeRoundScores([playerA, playerB, dummyP3, dummyP4]);
   console.assert(playerA.totalPoints === 15, 'Player A reaches 15 points');
   console.assert(playerA.canPickAugment === false, 'Player A >= 12 pts must be purged and play chay');
-  console.log('✔ Test 5: Luật cân bằng 12 điểm (Tước Lõi, Đánh Chay): PASSED');
+  console.log('✔ Test 8: Luật cân bằng 12 điểm (Tước Lõi, Đánh Chay): PASSED');
 
   // Round 3: playerA lại về Top 1 (+4đ -> 19đ >= 16đ) -> Kích hoạt CHECKMATE VÔ ĐỊCH!
   const round3Result = finalizeRoundScores([playerA, playerB, dummyP3, dummyP4]);
   console.assert(round3Result.checkmateWinner?.id === 'pA', 'Player A must win by Checkmate!');
-  console.log('✔ Test 6: Luật Checkmate 16 điểm và Vô Địch Toàn Trận: PASSED');
+  console.log('✔ Test 9: Luật Checkmate 16 điểm và Vô Địch Toàn Trận: PASSED');
 
-  console.log('🎉 TOÀN BỘ TEST SUITE ENGINE ĐÃ VƯỢT QUA 100%!');
+  console.log('🎉 TOÀN BỘ 9 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 
 runTests();
-

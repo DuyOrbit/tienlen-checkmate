@@ -16,17 +16,16 @@ export const CardView: React.FC<CardViewProps> = ({
   isFaceDown = false,
   small = false,
 }) => {
+  // Mặt úp lưng bài (Phong cách Poker Felt xanh rừng rậm)
   if (isFaceDown) {
     return (
       <div
-        className={`relative rounded-xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 shadow-lg flex items-center justify-center cursor-default select-none ${
-          small ? 'w-10 h-14' : 'w-16 h-24 sm:w-20 sm:h-28'
+        className={`relative rounded-xl border-2 border-[#153424] bg-gradient-to-br from-[#1d4632] via-[#163827] to-[#122e20] shadow-md flex items-center justify-center cursor-default select-none ${
+          small ? 'w-8 h-12 sm:w-9 sm:h-13' : 'w-14 h-20 sm:w-16 sm:h-24'
         }`}
       >
-        <div className="absolute inset-1 rounded-lg border border-cyan-400/20 bg-slate-950/60 flex items-center justify-center">
-          <div className="w-5 h-5 rounded-full border border-cyan-400/40 flex items-center justify-center">
-            <span className="text-[10px] text-cyan-400 font-cyber font-bold">CY</span>
-          </div>
+        <div className="absolute inset-1 rounded-lg border border-[#347855]/40 flex items-center justify-center bg-[#183d2b]/60">
+          <span className="text-[10px] text-[#fef08a] font-bold">♠</span>
         </div>
       </div>
     );
@@ -67,60 +66,57 @@ export const CardView: React.FC<CardViewProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`relative select-none rounded-xl transition-all duration-200 cursor-pointer ${
+      data-card-id={card.id}
+      data-card-rank={card.rank}
+      data-card-suit={card.suit}
+      className={`relative select-none rounded-xl sm:rounded-2xl transition-all duration-150 cursor-pointer bg-[#fdfbf7] border border-[#e2e8f0] shadow-md flex-shrink-0 ${
         small
-          ? 'w-10 h-14 text-xs'
-          : 'w-16 h-24 sm:w-20 sm:h-28 text-sm sm:text-base'
+          ? 'w-9 h-13 sm:w-10 sm:h-14 text-xs'
+          : 'w-15 h-22 sm:w-20 sm:h-28 text-sm sm:text-base'
       } ${
         isSelected
-          ? '-translate-y-5 sm:-translate-y-6 shadow-neon-cyan ring-2 ring-cyan-400 z-20'
+          ? '-translate-y-5 sm:-translate-y-6 ring-4 ring-[#86efac] shadow-2xl z-30 scale-105'
           : 'hover:-translate-y-2 hover:shadow-lg z-10'
-      } ${
-        isHeo
-          ? 'bg-gradient-to-b from-amber-950/70 via-slate-900 to-slate-950 border-2 border-amber-400'
-          : 'bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border border-slate-700/80 hover:border-cyan-400/60'
       }`}
     >
       {/* Top Left Rank & Suit */}
       <div
-        className={`absolute top-1 left-1.5 flex flex-col items-center leading-tight font-cyber font-bold ${
-          isRed ? 'text-rose-500' : 'text-slate-200'
+        className={`absolute top-1 left-1.5 sm:top-1.5 sm:left-2 flex flex-col items-center leading-none font-black ${
+          isRed ? 'text-[#e11d48]' : 'text-[#1e293b]'
         }`}
       >
-        <span>{card.rank}</span>
-        {renderSuitIcon(card.suit, 'w-3 h-3 sm:w-3.5 sm:h-3.5')}
+        <div className="flex items-center gap-0.5">
+          <span className="text-sm sm:text-base tracking-tighter">{card.rank}</span>
+          {isHeo && <span className="text-[10px] leading-none">👑</span>}
+        </div>
+        <div className="mt-0.5">
+          {renderSuitIcon(card.suit, small ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5 sm:w-4 sm:h-4')}
+        </div>
       </div>
 
-      {/* Center Graphic */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        {isHeo ? (
-          <div className="flex flex-col items-center">
-            <span className="text-amber-400 text-xs sm:text-sm font-cyber font-extrabold tracking-wider animate-pulse">
-              👑 HEO
-            </span>
-            {renderSuitIcon(
-              card.suit,
-              `w-6 h-6 sm:w-8 sm:h-8 ${isRed ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]' : 'text-amber-300 drop-shadow-[0_0_8px_rgba(252,211,77,0.6)]'}`
-            )}
+      {/* Center Big Graphic - Clean & Elegant */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className={`${isRed ? 'text-[#e11d48]' : 'text-[#1e293b]'}`}>
+          {renderSuitIcon(card.suit, small ? 'w-4 h-4' : 'w-6 h-6 sm:w-8 sm:h-8')}
+        </div>
+      </div>
+
+      {/* Bottom Right Inverted Rank & Suit (only for normal size) */}
+      {!small && (
+        <div
+          className={`absolute bottom-1 right-1.5 sm:bottom-1.5 sm:right-2 flex flex-col items-center leading-none font-black rotate-180 ${
+            isRed ? 'text-[#e11d48]' : 'text-[#1e293b]'
+          }`}
+        >
+          <div className="flex items-center gap-0.5">
+            <span className="text-sm sm:text-base tracking-tighter">{card.rank}</span>
+            {isHeo && <span className="text-[10px] leading-none">👑</span>}
           </div>
-        ) : (
-          renderSuitIcon(
-            card.suit,
-            `w-6 h-6 sm:w-8 sm:h-8 opacity-80 ${isRed ? 'text-rose-500' : 'text-slate-300'}`
-          )
-        )}
-      </div>
-
-      {/* Bottom Right Rank (inverted) */}
-      <div
-        className={`absolute bottom-1 right-1.5 rotate-180 flex flex-col items-center leading-tight font-cyber font-bold ${
-          isRed ? 'text-rose-500' : 'text-slate-200'
-        }`}
-      >
-        <span>{card.rank}</span>
-        {renderSuitIcon(card.suit, 'w-3 h-3 sm:w-3.5 sm:h-3.5')}
-      </div>
+          <div className="mt-0.5">
+            {renderSuitIcon(card.suit, 'w-3 h-3 sm:w-3.5 sm:h-3.5')}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

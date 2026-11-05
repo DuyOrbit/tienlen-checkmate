@@ -2,7 +2,12 @@ import { Combo, PlayerState, PointTransferEvent, Card } from './types.js';
 import { evaluateAugmentBonuses } from './augments.js';
 
 /**
- * Xử lý cướp điểm tức thì khi chặt Heo hoặc chặt Hàng
+ * Xử lý cướp điểm tức thì khi CHẶT HEO hoặc CHẶT HÀNG
+ * THEO ĐÚNG LUẬT TIẾN LÊN MIỀN NAM:
+ * - Heo đè Heo (kể cả Heo lớn đè Heo nhỏ) KHÔNG ĐƯỢC COI LÀ CHẶT HEO (không cướp điểm).
+ * - Chặt Heo Đơn (1 Heo): CHỈ XẢY RA khi bị 3 ĐÔI THÔNG, TỨ QUÝ hoặc 4 ĐÔI THÔNG chặt!
+ * - Chặt Đôi Heo: CHỈ XẢY RA khi bị TỨ QUÝ hoặc 4 ĐÔI THÔNG chặt!
+ * - Chặt Đè Hàng: 3 đôi thông bị đè bởi 3 đôi thông lớn hơn / Tứ quý / 4 đôi thông; Tứ quý bị đè bởi Tứ quý lớn hơn / 4 đôi thông.
  */
 export function handleChopPointTransfer(
   chopper: PlayerState,
@@ -14,39 +19,90 @@ export function handleChopPointTransfer(
   let reason: PointTransferEvent['reason'] = 'CHOP_HEO_BLACK';
   let message = '';
 
-  // 1. Chặt Heo
+  const isIncomingHang =
+    incomingCombo.type === 'THREE_PAIRS_SEQ' ||
+    incomingCombo.type === 'FOUR_OF_A_KIND' ||
+    incomingCombo.type === 'FOUR_PAIRS_SEQ';
+
+  // 1. Chặt Heo Đơn: Phải do Hàng (3 đôi thông, Tứ quý, 4 đôi thông) chặt!
+  // Heo lớn hơn đè Heo nhỏ hơn KHÔNG tính là chặt heo!
   if (currentCombo.type === 'SINGLE' && currentCombo.cards[0].rankValue === 15) {
-    const heo = currentCombo.cards[0];
-    const isRed = heo.suit === 'hearts' || heo.suit === 'diamonds';
-    stealAmount = isRed ? 2 : 1;
-    reason = isRed ? 'CHOP_HEO_RED' : 'CHOP_HEO_BLACK';
-    message = `${chopper.name} chặt ${isRed ? 'Heo Đỏ' : 'Heo Đen'} của ${victim.name}!`;
-  } else if (currentCombo.type === 'PAIR' && currentCombo.cards[0].rankValue === 15) {
-    // Chặt đôi heo
-    stealAmount = 3;
-    reason = 'CHOP_HEO_RED';
-    message = `${chopper.name} chặt Đôi Heo của ${victim.name}!`;
-  } else if (
+    if (isIncomingHang) {
+      const heo = currentCombo.cards[0];
+      const isRed = heo.suit === 'hearts' || heo.suit === 'diamonds';
+      stealAmount = isRed ? 2 : 1;
+      reason = isRed ? 'CHOP_HEO_RED' : 'CHOP_HEO_BLACK';
+      
+      const hangName =
+        incomingCombo.type === 'THREE_PAIRS_SEQ'
+          ? '3 Đôi Thông'
+          : incomingCombo.type === 'FOUR_OF_A_KIND'
+          ? 'Tứ Quý'
+          : '4 Đôi Thông';
+
+      message = `${chopper.name} dùng ${hangName} CHẶT ${isRed ? 'Heo Đỏ' : 'Heo Đen'} của ${victim.name}!`;
+    } else {
+      // Heo lớn đè Heo nhỏ -> Đánh bài bình thường, không tính chặt
+      return null;
+    }
+  }
+
+  // 2. Chặt Đôi Heo: Phải do Tứ quý hoặc 4 đôi thông chặt!
+  // Đôi heo lớn đè đôi heo nhỏ KHÔNG tính là chặt heo!
+  else if (currentCombo.type === 'PAIR' && currentCombo.cards[0].rankValue === 15) {
+    if (incomingCombo.type === 'FOUR_OF_A_KIND' || incomingCombo.type === 'FOUR_PAIRS_SEQ') {
+      stealAmount = 3;
+      reason = 'CHOP_HEO_RED';
+      const hangName = incomingCombo.type === 'FOUR_OF_A_KIND' ? 'Tứ Quý' : '4 Đôi Thông';
+      message = `${chopper.name} dùng ${hangName} CHẶT Đôi Heo của ${victim.name}!`;
+    } else {
+      return null;
+    }
+  }
+
+  // 3. Chặt Đè Hàng: 3 đôi thông / Tứ quý / 4 đôi thông bị Hàng lớn hơn chặt đè
+  else if (
     currentCombo.type === 'THREE_PAIRS_SEQ' ||
     currentCombo.type === 'FOUR_OF_A_KIND' ||
     currentCombo.type === 'FOUR_PAIRS_SEQ'
   ) {
-    // Chặt đè hàng
-    stealAmount = 3;
-    reason = 'CHOP_HANG';
-    message = `${chopper.name} chặt đè hàng của ${victim.name}!`;
+    if (isIncomingHang) {
+      stealAmount = 3;
+      reason = 'CHOP_HANG';
+      message = `${chopper.name} CHẶT ĐÈ HÀNG của ${victim.name}!`;
+    } else {
+      return null;
+    }
   }
 
   if (stealAmount <= 0) return null;
 
-  // Kiểm tra lõi Bounty Hunter (cướp thêm 1 điểm)
-  const hasHunter = chopper.activeAugments.some((a) => a.augment.id === 'AUG_HUNTER');
+  // Kiểm tra lõi Bounty Hunter của chopper (cướp thêm 1 điểm)
+  const hasHunter = chopper.activeAugments.some(
+    (a) => a.augment.id === 'AUG_HUNTER' || a.augment.name.toLowerCase().includes('săn heo')
+  );
   if (hasHunter) {
     stealAmount += 1;
-    message += ` (Lõi Bounty Hunter cướp thêm +1đ!)`;
+    message += ` (Lõi Thợ Săn Heo cướp thêm +1đ!)`;
   }
 
-  // Giới hạn điểm bị cướp: Điểm của victim không được âm dưới 0
+  // Kiểm tra lõi Phòng thủ (Emergency Shield) của victim: Chặn 1 lần mất điểm
+  const shieldIdx = victim.activeAugments.findIndex(
+    (a) => a.augment.id === 'AUG_SHIELD' || a.augment.name.toLowerCase().includes('khiên')
+  );
+  if (shieldIdx !== -1) {
+    message += ` 🛡️ Khiên Bong Bóng của ${victim.name} đã hấp thụ toàn bộ điểm phạt!`;
+    victim.activeAugments.splice(shieldIdx, 1);
+    stealAmount = 0;
+    return {
+      fromPlayerId: victim.id,
+      toPlayerId: chopper.id,
+      amount: 0,
+      reason,
+      message,
+    };
+  }
+
   const actualSteal = Math.min(victim.totalPoints, stealAmount);
   victim.totalPoints = Math.max(0, victim.totalPoints - actualSteal);
   chopper.totalPoints += actualSteal;
@@ -64,8 +120,7 @@ export function handleChopPointTransfer(
 }
 
 /**
- * Xử lý phạt thối heo/hàng cuối ván (khi ván đấu kết thúc nhưng vẫn còn heo/hàng trên tay)
- * Điểm phạt được chuyển trực tiếp cho người về Nhất (Top 1) của round đó.
+ * Xử lý phạt thối heo/hàng cuối ván
  */
 export function handleThoiPenalties(
   players: PlayerState[],
@@ -75,7 +130,22 @@ export function handleThoiPenalties(
 
   for (const p of players) {
     if (p.id === top1Player.id) continue;
-    if (p.hand.length === 0) continue; // Đã hết bài
+    if (p.hand.length === 0) continue;
+
+    const shieldIdx = p.activeAugments.findIndex(
+      (a) => a.augment.id === 'AUG_SHIELD' || a.augment.name.toLowerCase().includes('khiên')
+    );
+    if (shieldIdx !== -1) {
+      p.activeAugments.splice(shieldIdx, 1);
+      events.push({
+        fromPlayerId: p.id,
+        toPlayerId: top1Player.id,
+        amount: 0,
+        reason: 'THOI_HEO',
+        message: `🛡️ Khiên Bong Bóng đã cứu ${p.name} khỏi bị phạt thối heo/hàng!`,
+      });
+      continue;
+    }
 
     let penalty = 0;
     for (const card of p.hand) {
@@ -95,7 +165,7 @@ export function handleThoiPenalties(
         toPlayerId: top1Player.id,
         amount: actualPenalty,
         reason: 'THOI_HEO',
-        message: `${p.name} bị thối heo cuối ván! Bị trừ ${actualPenalty} điểm chuyển cho Quán quân round ${top1Player.name}`,
+        message: `${p.name} bị thối heo cuối ván! Bị trừ ${actualPenalty} điểm chuyển cho Quán quân ${top1Player.name}`,
       });
     }
   }
@@ -104,12 +174,9 @@ export function handleThoiPenalties(
 }
 
 /**
- * Tính điểm xếp hạng sau round và xử lý các luật 12 điểm & Checkmate 16 điểm
+ * Quyết toán điểm round cơ bản
  */
-export function finalizeRoundScores(
-  players: PlayerState[],
-  isToiTrang: boolean = false
-): {
+export function finalizeRoundScores(players: PlayerState[]): {
   roundPoints: Record<string, number>;
   notes: Record<string, string[]>;
   checkmateWinner: PlayerState | null;
@@ -118,58 +185,44 @@ export function finalizeRoundScores(
   const notes: Record<string, string[]> = {};
   let checkmateWinner: PlayerState | null = null;
 
-  for (const player of players) {
-    let basePoints = 0;
-    if (player.rankInRound === 1) {
-      basePoints = isToiTrang ? 5 : 4; // Ăn trắng được 5 điểm
-    } else if (player.rankInRound === 2) {
-      basePoints = 2;
-    } else if (player.rankInRound === 3) {
-      basePoints = 1;
-    } else {
-      basePoints = 0;
+  for (const p of players) {
+    let base = 0;
+    if (p.rankInRound === 1) base = 4;
+    else if (p.rankInRound === 2) base = 2;
+    else if (p.rankInRound === 3) base = 1;
+    else base = 0;
+
+    notes[p.id] = [];
+
+    // Áp dụng modifier từ Lõi nếu chưa chạm mốc 12 điểm
+    if (p.totalPoints < 12) {
+      const bonus = evaluateAugmentBonuses(p, base);
+      base = bonus.finalPoints;
+      notes[p.id] = bonus.bonusNotes;
     }
 
-    // Đánh giá hiệu ứng Lõi điểm số
-    const { finalPoints, bonusNotes } = evaluateAugmentBonuses(player, basePoints);
-    roundPoints[player.id] = finalPoints;
-    notes[player.id] = bonusNotes;
+    p.totalPoints += base;
+    roundPoints[p.id] = base;
 
-    // Cộng điểm vào tổng tích lũy
-    player.totalPoints += finalPoints;
+    // Kiểm tra điều kiện Cân Bằng 12 điểm: Bị tước sạch toàn bộ Lõi
+    if (p.totalPoints >= 12 && p.canPickAugment) {
+      p.canPickAugment = false;
+      p.activeAugments = [];
+    }
 
-    // Giảm số round còn lại của các active augments
-    player.activeAugments = player.activeAugments
+    // Kiểm tra điều kiện Checkmate 16: Phải >= 16 điểm VÀ giành Top 1 ở round này
+    if (p.totalPoints >= 16) {
+      p.isCheckmate = true;
+      if (p.rankInRound === 1 && !checkmateWinner) {
+        checkmateWinner = p;
+      }
+    }
+
+    // Trừ 1 round thời hạn của các Lõi còn lại
+    p.activeAugments = p.activeAugments
       .map((a) => ({ ...a, roundsRemaining: a.roundsRemaining - 1 }))
       .filter((a) => a.roundsRemaining > 0);
-
-    // LUẬT CÂN BẰNG 12 ĐIỂM:
-    // Nếu tổng điểm >= 12: TƯỚC HẾT LÕI và KHÔNG ĐƯỢC CHỌN LÕI NỮA (Đánh chay)
-    if (player.totalPoints >= 12) {
-      if (player.activeAugments.length > 0) {
-        notes[player.id].push('⚡ Vượt mốc 12 điểm: Bị xóa toàn bộ Lõi tích lũy (Chuyển sang Đánh Chay)!');
-      }
-      player.activeAugments = [];
-      player.canPickAugment = false;
-    } else {
-      player.canPickAugment = true;
-    }
-
-    // LUẬT CHECKMATE 16 ĐIỂM:
-    if (player.totalPoints >= 16) {
-      player.isCheckmate = true;
-    }
-  }
-
-  // Kiểm tra điều kiện THẮNG TOÀN TRẬN:
-  // Nếu có người chơi đang có >= 16 điểm VÀ vừa giành Top 1 ở round này -> WIN!
-  for (const player of players) {
-    if (player.rankInRound === 1 && player.totalPoints >= 16) {
-      checkmateWinner = player;
-      break;
-    }
   }
 
   return { roundPoints, notes, checkmateWinner };
 }
-

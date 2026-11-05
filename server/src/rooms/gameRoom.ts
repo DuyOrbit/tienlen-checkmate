@@ -31,6 +31,7 @@ export class GameRoom {
     };
   }
 
+  // Khởi tạo phòng chơi với 3 Bot
   public initVsBots(humanPlayerId: string, humanName: string) {
     const bots: PlayerState[] = [
       {
@@ -50,9 +51,9 @@ export class GameRoom {
       },
       {
         id: 'bot-1',
-        name: 'CYBER-NEXUS',
+        name: 'Bắp Rang',
         isBot: true,
-        avatarSeed: 'nexus',
+        avatarSeed: 'bear',
         hand: [],
         rankInRound: null,
         totalPoints: 0,
@@ -65,9 +66,9 @@ export class GameRoom {
       },
       {
         id: 'bot-2',
-        name: 'VAPOR-VIPER',
+        name: 'Cáo Nhỏ',
         isBot: true,
-        avatarSeed: 'viper',
+        avatarSeed: 'fox',
         hand: [],
         rankInRound: null,
         totalPoints: 0,
@@ -80,9 +81,9 @@ export class GameRoom {
       },
       {
         id: 'bot-3',
-        name: 'NEO-SHADOW',
+        name: 'Thỏ Chill',
         isBot: true,
-        avatarSeed: 'shadow',
+        avatarSeed: 'rabbit',
         hand: [],
         rankInRound: null,
         totalPoints: 0,
@@ -97,6 +98,109 @@ export class GameRoom {
 
     this.state.players = bots;
     this.startNewRound();
+  }
+
+  // Khởi tạo phòng chờ tùy chọn nhiều người (Sảnh chờ Bạn Bè)
+  public initCustomRoom(hostId: string, hostName: string): void {
+    this.state.phase = 'WAITING';
+    this.state.players = [
+      {
+        id: hostId,
+        name: hostName,
+        isBot: false,
+        avatarSeed: hostName,
+        hand: [],
+        rankInRound: null,
+        totalPoints: 0,
+        activeAugments: [],
+        canPickAugment: true,
+        isCheckmate: false,
+        hasPassed: false,
+        choppedCount: 0,
+        beenChoppedCount: 0,
+      },
+    ];
+    this.state.log.push(`👑 ${hostName} đã tạo phòng chờ [${this.state.roomCode}]!`);
+    this.broadcast();
+  }
+
+  // Thêm người chơi vào phòng chờ
+  public addPlayer(playerId: string, playerName: string): { success: boolean; message: string } {
+    if (this.state.players.length >= 4) {
+      return { success: false, message: 'Phòng đã đủ 4 người chơi!' };
+    }
+    if (this.state.phase !== 'WAITING') {
+      return { success: false, message: 'Trận đấu đang diễn ra, không thể tham gia!' };
+    }
+    if (this.state.players.some((p) => p.id === playerId)) {
+      return { success: true, message: 'Đã ở trong phòng' };
+    }
+    this.state.players.push({
+      id: playerId,
+      name: playerName,
+      isBot: false,
+      avatarSeed: playerName,
+      hand: [],
+      rankInRound: null,
+      totalPoints: 0,
+      activeAugments: [],
+      canPickAugment: true,
+      isCheckmate: false,
+      hasPassed: false,
+      choppedCount: 0,
+      beenChoppedCount: 0,
+    });
+    this.state.log.push(`🎮 ${playerName} đã tham gia phòng!`);
+    this.broadcast();
+    return { success: true, message: 'Tham gia thành công!' };
+  }
+
+  // Thêm bot vào phòng chờ
+  public addBot(): { success: boolean; message: string } {
+    if (this.state.players.length >= 4) {
+      return { success: false, message: 'Phòng đã đủ 4 người!' };
+    }
+    const defaultBots = [
+      { name: 'Bắp Rang', seed: 'bear' },
+      { name: 'Cáo Nhỏ', seed: 'fox' },
+      { name: 'Thỏ Chill', seed: 'rabbit' },
+      { name: 'Gấu Nâu', seed: 'bear' },
+    ];
+    const existing = this.state.players.map((p) => p.name);
+    const bot = defaultBots.find((b) => !existing.includes(b.name)) || {
+      name: `Bot ${this.state.players.length}`,
+      seed: 'robot',
+    };
+    this.state.players.push({
+      id: `bot-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: bot.name,
+      isBot: true,
+      avatarSeed: bot.seed,
+      hand: [],
+      rankInRound: null,
+      totalPoints: 0,
+      activeAugments: [],
+      canPickAugment: true,
+      isCheckmate: false,
+      hasPassed: false,
+      choppedCount: 0,
+      beenChoppedCount: 0,
+    });
+    this.state.log.push(`🤖 Đã thêm ${bot.name} vào phòng!`);
+    this.broadcast();
+    return { success: true, message: 'Đã thêm Bot thành công!' };
+  }
+
+  // Bắt đầu trận đấu từ phòng chờ (tự động lấp đầy Bot nếu thiếu)
+  public startCustomMatch(): { success: boolean; message: string } {
+    if (this.state.phase !== 'WAITING') {
+      return { success: false, message: 'Trận đấu đang diễn ra!' };
+    }
+    while (this.state.players.length < 4) {
+      this.addBot();
+    }
+    this.startNewRound();
+    return { success: true, message: 'Bắt đầu ván đấu!' };
   }
 
   public startNewRound() {
@@ -333,7 +437,7 @@ export class GameRoom {
     const currentP = this.state.players.find((p) => p.id === this.state.currentTurnPlayerId);
     if (!currentP || !currentP.isBot) return;
 
-    // Delay 700ms để người chơi nhìn rõ nhịp độ trận đấu
+    // Delay 750ms để người chơi nhìn rõ nhịp độ trận đấu
     setTimeout(() => {
       if (this.state.phase !== 'PLAYING' || this.state.currentTurnPlayerId !== currentP.id) return;
       const lastCombo = this.state.lastValidMove ? this.state.lastValidMove.combo : null;
@@ -438,4 +542,3 @@ export class GameRoom {
     this.onStateChange(this.state);
   }
 }
-

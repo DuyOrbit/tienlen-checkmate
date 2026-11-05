@@ -1,8 +1,9 @@
-// Cấu hình URL kết nối linh hoạt cho cả WAMP Apache (localhost/tienlen) và Vite dev server
+// Cấu hình URL linh hoạt cho cả Server đồng nhất (port 3001) và WampServer (localhost/tienlen)
+const host = window.location.hostname || 'localhost';
+
 export const API_BASE =
-  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? `http://${window.location.hostname}:3001`
-    : '';
+  window.location.port === '3001'
+    ? window.location.origin
+    : `http://${host}:3001`;
 
-export const SOCKET_URL = API_BASE || window.location.origin;
-
+export const SOCKET_URL = API_BASE;

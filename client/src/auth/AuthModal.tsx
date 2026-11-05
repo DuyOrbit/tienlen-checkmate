@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { AuthUser } from '../types.js';
 import { API_BASE } from '../config.js';
-import { User, Lock, Mail, Play, Shield } from 'lucide-react';
+import { User, Lock, Mail, Play, Shield, X } from 'lucide-react';
+import { CuteAvatar } from '../components/CuteAvatar.js';
 
 interface AuthModalProps {
   onSuccess: (user: AuthUser, token: string) => void;
@@ -14,7 +15,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onPlayAsGuest, 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
-  const [guestName, setGuestName] = useState('CyberGuest');
+  const [guestName, setGuestName] = useState('Mèo Mập');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -55,148 +56,162 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onPlayAsGuest, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-700/80 rounded-2xl p-6 shadow-neon-cyan relative">
+    <div className="fixed inset-0 z-50 bg-[#0f1713]/85 backdrop-blur-md flex items-center justify-center p-4 select-none">
+      <div className="max-w-md w-full bg-[#1b2620] border-2 border-[#2b3a32] rounded-3xl p-6 sm:p-7 shadow-2xl relative">
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 p-1.5 rounded-full bg-[#141e18] text-[#94a3b8] hover:text-[#f8fafc] transition"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Modal Header */}
+        <div className="text-center mb-6">
+          <div className="flex justify-center mb-2">
+            <CuteAvatar type={username || guestName || 'cat'} size="lg" />
+          </div>
+          <h2 className="text-2xl font-heading font-black text-[#f8fafc]">
+            {tab === 'login'
+              ? 'Chào Mừng Trở Lại!'
+              : tab === 'register'
+              ? 'Tạo Tài Khoản Mới'
+              : 'Chơi Nhanh Với Tên Tùy Chọn'}
+          </h2>
+          <p className="text-xs text-[#94a3b8] mt-1">
+            Đăng nhập để lưu tiến trình điểm & leo Bảng Vàng Checkmate
+          </p>
+        </div>
+
         {/* Tab Selection */}
-        <div className="flex border-b border-slate-800 pb-3 mb-5">
+        <div className="flex bg-[#121915] p-1 rounded-2xl mb-5 border border-[#233128]">
           <button
             onClick={() => { setTab('login'); setError(''); }}
-            className={`flex-1 pb-2 font-cyber text-xs uppercase tracking-wider text-center border-b-2 transition-colors ${
+            className={`flex-1 py-2 font-heading font-black text-xs uppercase tracking-wider text-center rounded-xl transition-all ${
               tab === 'login'
-                ? 'border-cyan-400 text-cyan-400 font-bold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-[#86efac] text-[#143522] shadow'
+                : 'text-[#94a3b8] hover:text-[#f8fafc]'
             }`}
           >
             Đăng Nhập
           </button>
           <button
             onClick={() => { setTab('register'); setError(''); }}
-            className={`flex-1 pb-2 font-cyber text-xs uppercase tracking-wider text-center border-b-2 transition-colors ${
+            className={`flex-1 py-2 font-heading font-black text-xs uppercase tracking-wider text-center rounded-xl transition-all ${
               tab === 'register'
-                ? 'border-cyan-400 text-cyan-400 font-bold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-[#86efac] text-[#143522] shadow'
+                : 'text-[#94a3b8] hover:text-[#f8fafc]'
             }`}
           >
             Đăng Ký
           </button>
           <button
             onClick={() => { setTab('guest'); setError(''); }}
-            className={`flex-1 pb-2 font-cyber text-xs uppercase tracking-wider text-center border-b-2 transition-colors ${
+            className={`flex-1 py-2 font-heading font-black text-xs uppercase tracking-wider text-center rounded-xl transition-all ${
               tab === 'guest'
-                ? 'border-cyan-400 text-cyan-400 font-bold'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'bg-[#86efac] text-[#143522] shadow'
+                : 'text-[#94a3b8] hover:text-[#f8fafc]'
             }`}
           >
-            Chơi Thử (Khách)
+            Chơi Thử
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-2.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-xs">
-            {error}
+          <div className="mb-4 p-3 rounded-2xl bg-[#450a0a]/80 border border-[#ef4444] text-[#fca5a5] text-xs font-bold text-center">
+            ⚠️ {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           {tab === 'guest' ? (
             <div>
-              <label className="block text-xs font-cyber text-slate-400 mb-1">
-                TÊN HIỂN THỊ CỦA BẠN
+              <label className="block text-xs font-bold text-[#cbd5e1] mb-1">
+                Tên hiển thị của bạn
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="Nhập tên..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-400"
+                  placeholder="Ví dụ: Mèo Mập, Cáo Nhỏ..."
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#141e18] border border-[#243328] text-sm text-[#f8fafc] focus:outline-none focus:border-[#86efac] transition"
+                  required
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">
-                Chế độ khách cho phép chơi nhanh với Bot mà không lưu điểm vào MySQL Database.
-              </p>
             </div>
           ) : (
             <>
               <div>
-                <label className="block text-xs font-cyber text-slate-400 mb-1">
-                  TÊN ĐĂNG NHẬP
+                <label className="block text-xs font-bold text-[#cbd5e1] mb-1">
+                  Tên tài khoản
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                   <input
                     type="text"
-                    required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Tên tài khoản (ví dụ: admin)"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-400"
+                    placeholder="Nhập username..."
+                    className="w-full px-4 py-2.5 rounded-2xl bg-[#141e18] border border-[#243328] text-sm text-[#f8fafc] focus:outline-none focus:border-[#86efac] transition"
+                    required
                   />
                 </div>
               </div>
 
               {tab === 'register' && (
                 <div>
-                  <label className="block text-xs font-cyber text-slate-400 mb-1">
-                    EMAIL (TÙY CHỌN)
+                  <label className="block text-xs font-bold text-[#cbd5e1] mb-1">
+                    Email (Tùy chọn)
                   </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="email@example.com"
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-400"
-                    />
-                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-[#141e18] border border-[#243328] text-sm text-[#f8fafc] focus:outline-none focus:border-[#86efac] transition"
+                  />
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-cyber text-slate-400 mb-1">
-                  MẬT KHẨU
+                <label className="block text-xs font-bold text-[#cbd5e1] mb-1">
+                  Mật khẩu
                 </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#141e18] border border-[#243328] text-sm text-[#f8fafc] focus:outline-none focus:border-[#86efac] transition"
+                  required
+                />
               </div>
-
-              {tab === 'login' && (
-                <div className="text-[11px] text-slate-400">
-                  Tài khoản Admin mặc định hệ thống: <span className="text-cyan-400 font-mono">admin / admin123</span>
-                </div>
-              )}
             </>
           )}
 
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 font-cyber text-xs hover:bg-slate-800 transition"
-            >
-              HỦY
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-cyber font-bold text-xs uppercase tracking-wider hover:bg-cyan-400 shadow-neon-cyan transition"
-            >
-              {loading ? 'ĐANG XỬ LÝ...' : tab === 'login' ? 'ĐĂNG NHẬP' : tab === 'register' ? 'TẠO TÀI KHOẢN' : 'VÀO BÀN CHƠI'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 mt-2 rounded-full btn-squish-green font-heading font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
+          >
+            {loading ? (
+              <span>Đang xử lý...</span>
+            ) : tab === 'login' ? (
+              <span>ĐĂNG NHẬP NGAY</span>
+            ) : tab === 'register' ? (
+              <span>TẠO TÀI KHOẢN</span>
+            ) : (
+              <span>VÀO BÀN CHƠI THỬ</span>
+            )}
+          </button>
         </form>
+
+        <div className="mt-4 text-center">
+          <span className="text-[11px] text-[#64748b]">
+            Tài khoản Admin mặc định: <strong>admin</strong> / <strong>admin123</strong>
+          </span>
+        </div>
       </div>
     </div>
   );
 };
-

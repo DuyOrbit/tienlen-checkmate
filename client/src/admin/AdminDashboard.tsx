@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { API_BASE } from '../config.js';
 import { Shield, Users, Trophy, Ban, CheckCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { CuteAvatar } from '../components/CuteAvatar.js';
 
 interface UserRecord {
   id: string;
@@ -63,18 +64,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onBack })
         body: JSON.stringify({ isBanned: !user.isBanned }),
       });
       if (res.ok) {
-        setMsg(`Cập nhật trạng thái khóa tài khoản ${user.username} thành công!`);
+        setMsg(`Đã ${!user.isBanned ? 'khóa' : 'mở khóa'} tài khoản [${user.username}]`);
         loadData();
       }
-    } catch (e: any) {
-      alert('Lỗi cập nhật');
+    } catch (e) {
+      console.error(e);
     }
   };
 
   const handleToggleRole = async (user: UserRecord) => {
-    const newRole = user.role === 'ADMIN' ? 'USER' : 'ADMIN';
-    if (!confirm(`Bạn có chắc muốn đổi quyền của ${user.username} thành ${newRole}?`)) return;
-
+    const nextRole = user.role === 'ADMIN' ? 'USER' : 'ADMIN';
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${user.id}/role`, {
         method: 'PATCH',
@@ -82,161 +81,169 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onBack })
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify({ role: nextRole }),
       });
       if (res.ok) {
-        setMsg(`Đã đổi quyền của ${user.username} thành ${newRole}!`);
+        setMsg(`Đã đổi quyền [${user.username}] thành ${nextRole}`);
         loadData();
       }
-    } catch (e: any) {
-      alert('Lỗi đổi quyền');
+    } catch (e) {
+      console.error(e);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#070a12] text-slate-100 p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-800">
+    <div className="min-h-screen bg-[#161c18] text-[#f1f5f9] p-4 sm:p-8 select-none">
+      <div className="max-w-6xl w-full mx-auto space-y-6">
+        {/* Top Bar */}
+        <div className="flex items-center justify-between border-b border-[#243328] pb-4">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-400 transition"
+              className="px-4 py-2 rounded-full bg-[#202b23] border border-[#2d3d32] text-xs font-bold text-[#cbd5e1] hover:text-white transition flex items-center gap-1.5"
             >
-              <ArrowLeft className="w-5 h-5 text-cyan-400" />
+              <ArrowLeft className="w-4 h-4" />
+              <span>Quay lại Game</span>
             </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <Shield className="w-6 h-6 text-amber-400" />
-                <h1 className="text-xl sm:text-2xl font-cyber font-black text-slate-100">
-                  ADMIN COCKPIT (MYSQL QUẢN TRỊ)
-                </h1>
-              </div>
-              <p className="text-xs text-slate-400">
-                Quản lý người dùng, phân quyền RBAC và theo dõi dữ liệu MySQL WampServer
-              </p>
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-[#fde047]" />
+              <h1 className="text-xl sm:text-2xl font-heading font-black text-[#f8fafc]">
+                Bảng Quản Trị Hệ Thống
+              </h1>
             </div>
           </div>
 
           <button
             onClick={loadData}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-cyber hover:border-cyan-400 transition"
+            className="p-2.5 rounded-full btn-squish-gray flex items-center justify-center"
+            title="Làm mới dữ liệu"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>LÀM MỚI</span>
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {msg && (
-          <div className="mt-4 p-3 rounded-xl bg-cyan-950/60 border border-cyan-500/50 text-cyan-300 text-xs flex justify-between items-center">
+          <div className="p-3 rounded-2xl bg-[#14291e] border border-[#234533] text-xs font-bold text-[#86efac] flex items-center justify-between">
             <span>{msg}</span>
-            <button onClick={() => setMsg('')} className="text-slate-400 hover:text-white">✕</button>
+            <button onClick={() => setMsg('')} className="text-xs hover:underline">
+              Đóng
+            </button>
           </div>
         )}
 
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-[11px] font-cyber text-slate-400 uppercase">Tổng Người Dùng</div>
-                <div className="text-xl font-cyber font-bold text-slate-100">{stats.totalUsers}</div>
-              </div>
+        {/* 3 Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-3xl bg-[#1c2721] border border-[#2b3a32] p-5 shadow-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Users className="w-5 h-5 text-[#86efac]" />
+              <span className="text-xs font-bold text-[#94a3b8] uppercase">TỔNG NGƯỜI DÙNG</span>
             </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-950 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                <Trophy className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-[11px] font-cyber text-slate-400 uppercase">Trận Đấu Đã Lưu</div>
-                <div className="text-xl font-cyber font-bold text-slate-100">{stats.totalMatches}</div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-950 border border-rose-500/40 flex items-center justify-center text-rose-400">
-                <Ban className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="text-[11px] font-cyber text-slate-400 uppercase">Tài Khoản Bị Khóa</div>
-                <div className="text-xl font-cyber font-bold text-rose-400">{stats.bannedUsers}</div>
-              </div>
+            <div className="text-3xl font-heading font-black text-[#f8fafc]">
+              {stats?.totalUsers ?? users.length}
             </div>
           </div>
-        )}
+
+          <div className="rounded-3xl bg-[#1c2721] border border-[#2b3a32] p-5 shadow-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Trophy className="w-5 h-5 text-[#fde047]" />
+              <span className="text-xs font-bold text-[#94a3b8] uppercase">VÁN ĐÃ ĐẤU</span>
+            </div>
+            <div className="text-3xl font-heading font-black text-[#fde047]">
+              {stats?.totalMatches ?? 0}
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-[#1c2721] border border-[#2b3a32] p-5 shadow-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Ban className="w-5 h-5 text-[#f87171]" />
+              <span className="text-xs font-bold text-[#94a3b8] uppercase">ĐANG BỊ KHÓA</span>
+            </div>
+            <div className="text-3xl font-heading font-black text-[#f87171]">
+              {stats?.bannedUsers ?? users.filter((u) => u.isBanned).length}
+            </div>
+          </div>
+        </div>
 
         {/* User Management Table */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-          <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-            <h2 className="font-cyber font-bold text-sm uppercase text-slate-200">
-              DANH SÁCH NGƯỜI DÙNG TRONG MYSQL
+        <div className="rounded-3xl bg-[#1c2721] border border-[#2b3a32] overflow-hidden shadow-xl">
+          <div className="p-4 sm:p-5 border-b border-[#243328] flex items-center justify-between">
+            <h2 className="text-base font-heading font-black text-[#f8fafc]">
+              Danh Sách Tài Khoản
             </h2>
-            <span className="text-xs text-slate-400 font-mono">Bảng: users</span>
+            <span className="text-xs text-[#94a3b8]">{users.length} người dùng</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950 text-slate-400 font-cyber uppercase tracking-wider text-[11px] border-b border-slate-800">
+              <thead className="bg-[#141e18] text-[#94a3b8] uppercase font-bold border-b border-[#243328]">
                 <tr>
-                  <th className="p-3">Tài Khoản</th>
-                  <th className="p-3">Email</th>
-                  <th className="p-3">Quyền (Role)</th>
-                  <th className="p-3">Thắng Checkmate</th>
-                  <th className="p-3">Trạng Thái</th>
-                  <th className="p-3 text-right">Thao Tác</th>
+                  <th className="p-3 sm:p-4">Người dùng</th>
+                  <th className="p-3 sm:p-4">Quyền</th>
+                  <th className="p-3 sm:p-4">Trận đã đấu</th>
+                  <th className="p-3 sm:p-4">Checkmate Thắng</th>
+                  <th className="p-3 sm:p-4">Trạng thái</th>
+                  <th className="p-3 sm:p-4 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-sans">
+              <tbody className="divide-y divide-[#243328]">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-3 font-cyber font-bold text-slate-200">{u.username}</td>
-                    <td className="p-3 text-slate-400">{u.email || '-'}</td>
-                    <td className="p-3">
+                  <tr key={u.id} className="hover:bg-[#1f2d24] transition">
+                    <td className="p-3 sm:p-4">
+                      <div className="flex items-center gap-2.5">
+                        <CuteAvatar type={u.username} size="sm" />
+                        <div>
+                          <div className="font-bold text-[#f8fafc] text-sm">{u.username}</div>
+                          <div className="text-[10px] text-[#64748b]">{u.email || 'Không có email'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 sm:p-4">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-cyber font-bold border ${
+                        className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] ${
                           u.role === 'ADMIN'
-                            ? 'bg-amber-950/70 border-amber-500/50 text-amber-300'
-                            : 'bg-slate-800 border-slate-700 text-slate-300'
+                            ? 'bg-[#78350f] text-[#fde047] border border-[#b45309]'
+                            : 'bg-[#141e18] text-[#94a3b8] border border-[#233128]'
                         }`}
                       >
                         {u.role}
                       </span>
                     </td>
-                    <td className="p-3 font-cyber text-cyan-400">
-                      {u.stats?.checkmateWins || 0} trận ({u.stats?.totalPoints || 0}đ)
+                    <td className="p-3 sm:p-4 text-sm font-bold text-[#cbd5e1]">
+                      {u.stats?.matchesPlayed ?? 0}
                     </td>
-                    <td className="p-3">
-                      {u.isBanned ? (
-                        <span className="text-rose-400 flex items-center gap-1 font-cyber text-[10px]">
-                          <Ban className="w-3 h-3" /> ĐÃ KHÓA
-                        </span>
-                      ) : (
-                        <span className="text-emerald-400 flex items-center gap-1 font-cyber text-[10px]">
-                          <CheckCircle className="w-3 h-3" /> HOẠT ĐỘNG
-                        </span>
-                      )}
+                    <td className="p-3 sm:p-4 text-sm font-bold text-[#fde047]">
+                      {u.stats?.checkmateWins ?? 0}
                     </td>
-                    <td className="p-3 text-right space-x-2">
-                      <button
-                        onClick={() => handleToggleRole(u)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-700 text-[10px] font-cyber text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition"
-                      >
-                        Đổi Role
-                      </button>
-                      <button
-                        onClick={() => handleToggleBan(u)}
-                        className={`px-2.5 py-1 rounded-lg border text-[10px] font-cyber transition ${
+                    <td className="p-3 sm:p-4">
+                      <span
+                        className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
                           u.isBanned
-                            ? 'border-emerald-500/50 text-emerald-300 hover:bg-emerald-950'
-                            : 'border-rose-500/50 text-rose-300 hover:bg-rose-950'
+                            ? 'bg-[#450a0a] text-[#fca5a5] border border-[#ef4444]'
+                            : 'bg-[#14291e] text-[#86efac] border border-[#234533]'
                         }`}
                       >
-                        {u.isBanned ? 'Mở Khóa' : 'Khóa'}
-                      </button>
+                        {u.isBanned ? 'ĐÃ KHÓA' : 'HOẠT ĐỘNG'}
+                      </span>
+                    </td>
+                    <td className="p-3 sm:p-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleToggleRole(u)}
+                          className="px-2.5 py-1 rounded-full bg-[#202b23] border border-[#2d3d32] text-[10px] font-bold text-[#cbd5e1] hover:text-white transition"
+                        >
+                          {u.role === 'ADMIN' ? 'Hạ Quyền' : 'Thăng Admin'}
+                        </button>
+                        <button
+                          onClick={() => handleToggleBan(u)}
+                          className={`px-2.5 py-1 rounded-full border text-[10px] font-bold transition ${
+                            u.isBanned
+                              ? 'bg-[#14291e] border-[#234533] text-[#86efac] hover:bg-[#1e3d2c]'
+                              : 'bg-[#450a0a] border-[#ef4444] text-[#fca5a5] hover:bg-[#5f1010]'
+                          }`}
+                        >
+                          {u.isBanned ? 'Mở Khóa' : 'Khóa Nick'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -248,4 +255,3 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onBack })
     </div>
   );
 };
-

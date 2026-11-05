@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Augment, Card } from '../types.js';
+import { Eye, Check, Sparkles } from 'lucide-react';
 import { CardView } from './CardView.js';
-import { Zap, Crosshair, ShieldAlert, Skull, Flame, EyeOff, Sparkles, Eye, EyeOff as EyeHide } from 'lucide-react';
 
 interface AugmentModalProps {
   augments: Augment[];
@@ -10,165 +10,217 @@ interface AugmentModalProps {
 }
 
 export const AugmentModal: React.FC<AugmentModalProps> = ({ augments, hand, onSelect }) => {
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>(augments[0]?.id || '');
+  const [timeLeft, setTimeLeft] = useState<number>(10);
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Zap':
-        return <Zap className="w-7 h-7 sm:w-8 sm:h-8 text-cyan-400" />;
-      case 'Crosshair':
-        return <Crosshair className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-400" />;
-      case 'ShieldAlert':
-        return <ShieldAlert className="w-7 h-7 sm:w-8 sm:h-8 text-blue-400" />;
-      case 'Skull':
-        return <Skull className="w-7 h-7 sm:w-8 sm:h-8 text-rose-500" />;
-      case 'Flame':
-        return <Flame className="w-7 h-7 sm:w-8 sm:h-8 text-amber-400" />;
-      case 'EyeOff':
-        return <EyeOff className="w-7 h-7 sm:w-8 sm:h-8 text-purple-400" />;
-      case 'Sparkles':
-        return <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-yellow-300" />;
-      default:
-        return <Zap className="w-7 h-7 sm:w-8 sm:h-8 text-cyan-400" />;
+  // Auto-countdown 10s
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      if (selectedId) onSelect(selectedId);
+      return;
+    }
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft, selectedId, onSelect]);
+
+  const handleConfirm = () => {
+    if (selectedId) {
+      onSelect(selectedId);
     }
   };
 
-  const getRarityBadge = (rarity: Augment['rarity']) => {
-    switch (rarity) {
-      case 'COMMON':
-        return 'border-cyan-500/40 text-cyan-400 bg-cyan-950/60';
-      case 'RARE':
-        return 'border-purple-500/50 text-purple-300 bg-purple-950/60';
-      case 'EPIC':
-        return 'border-amber-500/60 text-amber-300 bg-amber-950/60 shadow-neon-gold';
+  // Helper visual category & icons for cards
+  const getAugmentTheme = (aug: Augment, idx: number) => {
+    const id = aug.id.toLowerCase();
+    const name = aug.name.toLowerCase();
+
+    if (id.includes('overclock') || name.includes('về nhất') || idx === 0) {
+      return {
+        category: 'BỨT TỐC',
+        badgeBg: 'bg-[#78350f]',
+        badgeText: 'text-[#fef3c7]',
+        cardBg: 'bg-[#fef3c7]',
+        icon: '🚀',
+        iconBg: 'bg-[#fde68a]',
+        headline: '+2 điểm khi về nhất',
+        highlightText: 'Về nhất ở ván tiếp theo? Nhận thêm 2 điểm thưởng.',
+        footerTag: 'Chỉ áp dụng trong 1 ván',
+      };
     }
+    if (id.includes('bounty') || id.includes('hunter') || name.includes('săn heo') || idx === 1) {
+      return {
+        category: 'TẤN CÔNG',
+        badgeBg: 'bg-[#15803d]',
+        badgeText: 'text-[#dcfce7]',
+        cardBg: 'bg-[#fee2e2]',
+        icon: '🐷',
+        iconBg: 'bg-[#fecaca]',
+        headline: '+1 điểm mỗi lần chặt heo',
+        highlightText: 'Dùng Tứ Quý / 3 Đôi Thông chặt heo nhận thêm điểm.',
+        footerTag: 'Sẵn sàng săn heo',
+      };
+    }
+    return {
+      category: 'PHÒNG THỦ',
+      badgeBg: 'bg-[#374151]',
+      badgeText: 'text-[#f3f4f6]',
+      cardBg: 'bg-[#e0f2fe]',
+      icon: '🛡️',
+      iconBg: 'bg-[#bae6fd]',
+      headline: 'Chặn 1 lần mất 2 điểm',
+      highlightText: 'Một lớp bảo vệ êm ái cho pha xui đầu tiên của bạn.',
+      footerTag: 'Tự kích hoạt khi bị phạt',
+    };
   };
 
-  // Thống kê nhanh bài trên tay để người chơi dễ định hướng
-  const heoCount = hand.filter((c) => c.rankValue === 15).length;
-  const rankCounts: Record<number, number> = {};
-  for (const c of hand) rankCounts[c.rankValue] = (rankCounts[c.rankValue] || 0) + 1;
-  const hasQuad = Object.values(rankCounts).some((v) => v === 4);
+  // Thống kê nhanh tay bài
+  const heoCards = hand.filter((c) => c.rankValue === 15);
+  const heoCount = heoCards.length;
 
-  // Khi người chơi muốn tạm thu nhỏ modal để nhìn toàn bộ bàn bài
   if (isMinimized) {
     return (
-      <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+      <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50">
         <button
           onClick={() => setIsMinimized(false)}
-          className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 font-cyber font-black text-xs uppercase tracking-wider shadow-neon-cyan flex items-center gap-2"
+          className="px-6 py-2.5 rounded-full btn-squish-green font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-2xl"
         >
           <Eye className="w-4 h-4" />
-          <span>MỞ LẠI BẢNG CHỌN LÕI CÔNG NGHỆ</span>
+          <span>MỞ LẠI BẢNG PHÉP MÀU ({timeLeft}s)</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="max-w-4xl w-full flex flex-col items-center my-auto">
-        {/* Header with Peek Button */}
-        <div className="w-full flex items-center justify-between mb-3 px-2">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full border border-cyan-400/40 bg-cyan-950/60 text-cyan-400 font-cyber text-[11px] tracking-widest uppercase">
-              GIAI ĐOẠN ĐẶC TẢ CHIẾN THUẬT
+    <div className="fixed inset-0 z-50 bg-[#0f1713]/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto">
+      <div className="max-w-4xl w-full bg-[#1b2620] border-2 border-[#2b3d33] rounded-3xl p-4 sm:p-6 shadow-2xl relative my-auto">
+        {/* Top Header */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-center w-full relative">
+            <span className="text-[11px] font-bold text-[#fde047] uppercase tracking-widest flex items-center justify-center gap-1">
+              ✦ PHẦN THƯỞNG SAU VÁN ✦
             </span>
+            <h2 className="text-2xl sm:text-3xl font-heading font-black text-[#f8fafc] mt-0.5">
+              Chọn một chút “phép màu”
+            </h2>
+            <p className="text-xs text-[#94a3b8] mt-0.5 font-medium">
+              Một nâng cấp nhỏ, một pha lật kèo lớn. Chọn 1 trong 3 thẻ!
+            </p>
           </div>
 
-          <button
-            onClick={() => setIsMinimized(true)}
-            className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-400 hover:border-cyan-400 font-cyber text-xs flex items-center gap-1.5 transition"
-            title="Thu nhỏ để nhìn toàn cảnh bàn chơi"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>XEM BÀN CHƠI</span>
-          </button>
+          {/* Countdown timer pill badge */}
+          <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-[#78350f]/80 border border-[#b45309] text-[#fde047] font-black text-xs shadow">
+            {timeLeft}s
+          </div>
         </div>
 
-        <div className="text-center mb-4">
-          <h2 className="text-xl sm:text-3xl font-cyber font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-yellow-300 to-pink-500">
-            XEM BÀI & CHỌN LÕI CÔNG NGHỆ
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Quan sát 13 lá bài của bạn bên dưới để chọn Lõi phù hợp nhất với thế bài round này!
-          </p>
-        </div>
+        {/* 3 Collectible Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
+          {augments.map((aug, idx) => {
+            const theme = getAugmentTheme(aug, idx);
+            const isSelected = selectedId === aug.id;
 
-        {/* 3 Holo Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full mb-4">
-          {augments.map((aug) => (
-            <div
-              key={aug.id}
-              onClick={() => onSelect(aug.id)}
-              className="group relative rounded-2xl p-4 sm:p-5 border border-slate-700/80 bg-gradient-to-b from-slate-900/90 via-slate-900 to-slate-950 hover:border-cyan-400 hover:shadow-neon-cyan transition-all duration-300 cursor-pointer flex flex-col justify-between hover:-translate-y-1.5 select-none"
-            >
-              <div className="absolute top-0 left-6 right-6 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            return (
+              <div
+                key={aug.id}
+                onClick={() => setSelectedId(aug.id)}
+                className={`relative rounded-3xl p-3.5 sm:p-4 flex flex-col justify-between cursor-pointer transition-all duration-150 ${
+                  theme.cardBg
+                } ${
+                  isSelected
+                    ? 'ring-4 ring-[#86efac] shadow-2xl scale-[1.02] -translate-y-1'
+                    : 'opacity-90 hover:opacity-100 hover:-translate-y-0.5 shadow-md'
+                }`}
+              >
+                {/* Checkmark icon for selected card */}
+                {isSelected && (
+                  <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[#86efac] border-2 border-[#166534] flex items-center justify-center text-[#14532d] shadow">
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  </div>
+                )}
 
-              <div>
-                <div className="flex justify-between items-center mb-3">
+                {/* Top Category Badge */}
+                <div className="flex justify-center mb-2">
                   <span
-                    className={`text-[10px] font-cyber font-bold px-2 py-0.5 rounded border ${getRarityBadge(
-                      aug.rarity
-                    )}`}
+                    className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${theme.badgeBg} ${theme.badgeText}`}
                   >
-                    {aug.rarity}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">
-                    ⏱️ {aug.durationRounds} round
+                    {theme.category}
                   </span>
                 </div>
 
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-inner">
-                  {getIcon(aug.icon)}
+                {/* Big Center Icon */}
+                <div className="flex justify-center my-1">
+                  <div
+                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-2xl shadow-inner ${theme.iconBg}`}
+                  >
+                    {theme.icon}
+                  </div>
                 </div>
 
-                <h3 className="text-base sm:text-lg font-cyber font-bold text-slate-100 group-hover:text-cyan-400 transition-colors mb-1.5">
-                  {aug.name}
-                </h3>
+                {/* Name & Headline */}
+                <div className="text-center my-1.5">
+                  <h3 className="text-sm sm:text-base font-heading font-black text-[#1e293b]">
+                    {aug.name}
+                  </h3>
+                  <div className="text-[11px] font-black text-[#0f172a] mt-0.5">
+                    {theme.headline}
+                  </div>
+                </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed font-sans min-h-[44px]">
-                  {aug.description}
+                {/* Description */}
+                <p className="text-[10px] text-[#475569] text-center leading-relaxed mb-3 line-clamp-2">
+                  {aug.description || theme.highlightText}
                 </p>
-              </div>
 
-              <button className="mt-4 w-full py-2 sm:py-2.5 rounded-xl font-cyber font-bold text-xs uppercase tracking-wider bg-slate-800 text-slate-200 border border-slate-700 group-hover:bg-cyan-500 group-hover:text-slate-950 group-hover:border-cyan-400 group-hover:shadow-neon-cyan transition-all">
-                KÍCH HOẠT LÕI NÀY
-              </button>
-            </div>
-          ))}
+                {/* Bottom Duration / Status Tag */}
+                <div className="rounded-xl py-1 px-2 bg-black/10 text-center text-[9px] font-bold text-[#334155]">
+                  {isSelected ? `Đã chọn · ${theme.footerTag}` : theme.footerTag}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Player's 13 Cards Section (Directly visible while picking!) */}
-        <div className="w-full rounded-2xl bg-slate-900/95 border border-cyan-500/30 p-3 sm:p-4 shadow-xl flex flex-col items-center">
-          <div className="flex flex-wrap items-center justify-between w-full mb-2.5 px-2 gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-cyber font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                BÀI TRÊN TAY CỦA BẠN ({hand.length} LÁ):
-              </span>
-              {heoCount > 0 && (
-                <span className="text-[10px] font-cyber px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40">
-                  👑 {heoCount} HEO
+        {/* 🃏 HAND PREVIEW: HIỂN THỊ BÀI ĐÃ CHIA SẴN CHO NGƯỜI CHƠI XEM (Hình 1) */}
+        <div className="my-3 p-3 rounded-2xl bg-[#141e18] border border-[#233329]">
+          <div className="flex items-center justify-between text-xs font-bold text-[#cbd5e1] mb-2 px-1">
+            <span className="flex items-center gap-1.5">
+              <span>🃏 Bài của bạn đã chia ({hand.length} lá):</span>
+              {heoCount > 0 ? (
+                <span className="text-[#fde047] font-black text-[11px]">
+                  (Có {heoCount} Heo 👑)
                 </span>
+              ) : (
+                <span className="text-[#94a3b8] text-[11px]">(Không có Heo)</span>
               )}
-              {hasQuad && (
-                <span className="text-[10px] font-cyber px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-500/40">
-                  ⚔️ TỨ QUÝ
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
-              Kiểm tra kỹ bài trước khi chọn Lõi để tối ưu điểm số!
+            </span>
+            <span className="text-[10px] text-[#86efac]">
+              Xem bài để chọn Lõi phù hợp
             </span>
           </div>
 
-          {/* Cards Row */}
-          <div className="flex -space-x-3 sm:-space-x-5 overflow-x-auto max-w-full py-1.5 px-2 justify-center">
-            {hand.map((card) => (
-              <CardView key={card.id} card={card} small={false} />
+          {/* Fanned cards list */}
+          <div className="flex -space-x-3 sm:-space-x-4 overflow-x-auto py-1 px-1 justify-start sm:justify-center">
+            {hand.map((c) => (
+              <CardView key={c.id} card={c} small={true} />
             ))}
           </div>
+        </div>
+
+        {/* Action Button & Disclaimer */}
+        <div className="flex flex-col items-center gap-1.5 mt-2">
+          <button
+            onClick={handleConfirm}
+            className="w-full sm:w-64 py-3 rounded-full btn-squish-green font-heading font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
+          >
+            <span>XÁC NHẬN</span>
+          </button>
+          <span className="text-[10px] text-[#94a3b8]">
+            Tự xác nhận khi hết giờ · Chỉ có hiệu lực trong ván tiếp theo
+          </span>
         </div>
       </div>
     </div>

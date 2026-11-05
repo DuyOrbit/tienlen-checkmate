@@ -4,40 +4,60 @@
 
 @layer base {
   body {
-    background-color: #070a12;
-    background-image: 
-      linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
-    background-size: 36px 36px;
-    font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #161c18;
+    color: #f1f5f9;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
-  h1, h2, h3, .font-cyber {
-    font-family: 'Orbitron', monospace, sans-serif;
-    letter-spacing: 0.05em;
+  h1, h2, h3, .font-heading {
+    font-family: 'Fredoka', 'Nunito', sans-serif;
+    letter-spacing: 0.02em;
   }
 }
 
-/* Custom glowing borders & scanlines */
-.cyber-glow-cyan {
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.1);
+/* Cozy Poker Table Styles */
+.felt-table {
+  background: radial-gradient(circle at 50% 50%, #24523d 0%, #1a3d2c 70%, #153224 100%);
+  border: 10px solid #7c4c29;
+  box-shadow: 0 0 0 2px #513018, 0 16px 36px rgba(0, 0, 0, 0.6), inset 0 0 24px rgba(0, 0, 0, 0.4);
 }
 
-.cyber-glow-gold {
-  box-shadow: 0 0 20px rgba(255, 183, 3, 0.5), inset 0 0 10px rgba(255, 183, 3, 0.2);
+.felt-table-inner-stitch {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
 }
 
-.cyber-glow-pink {
-  box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.1);
+/* Squishy 3D Button utilities */
+.btn-squish-green {
+  background-color: #86efac;
+  color: #143522;
+  box-shadow: 0 4px 0 #4ade80, 0 6px 14px rgba(0, 0, 0, 0.25);
+  transition: all 0.1s ease;
 }
 
-/* Holographic chip animation */
-@keyframes holoPulse {
-  0%, 100% { border-color: rgba(0, 240, 255, 0.4); }
-  50% { border-color: rgba(0, 240, 255, 0.9); box-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
+.btn-squish-green:hover {
+  background-color: #99f6b9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #4ade80, 0 8px 18px rgba(0, 0, 0, 0.25);
 }
 
-.holo-card-active {
-  animation: holoPulse 2s infinite ease-in-out;
+.btn-squish-green:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #4ade80, 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
+.btn-squish-gray {
+  background-color: #38453e;
+  color: #e2e8f0;
+  box-shadow: 0 4px 0 #252e2a, 0 6px 14px rgba(0, 0, 0, 0.25);
+  transition: all 0.1s ease;
+}
+
+.btn-squish-gray:hover {
+  background-color: #44544b;
+  transform: translateY(-2px);
+}
+
+.btn-squish-gray:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #252e2a;
+}
