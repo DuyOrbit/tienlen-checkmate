@@ -1,0 +1,16 @@
+{
+  "name": "tienlen-checkmate-project",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiến Lên Checkmate & Point Augments - Cyberpunk Web Card Game",
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "start": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "cd client && npm run build && cd ../server && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
+

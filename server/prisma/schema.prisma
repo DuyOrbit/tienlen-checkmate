@@ -1,0 +1,70 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique @db.VarChar(50)
+  email        String?       @unique @db.VarChar(100)
+  passwordHash String        @db.VarChar(255)
+  role         Role          @default(USER)
+  isBanned     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  stats        UserStats?
+  matchPlayers MatchPlayer[]
+
+  @@map("users")
+}
+
+model UserStats {
+  id            String @id @default(uuid())
+  userId        String @unique
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchesPlayed Int    @default(0)
+  checkmateWins Int    @default(0)
+  top1Count     Int    @default(0)
+  top2Count     Int    @default(0)
+  top3Count     Int    @default(0)
+  top4Count     Int    @default(0)
+  totalPoints   Int    @default(0)
+
+  @@map("user_stats")
+}
+
+model Match {
+  id          String        @id @default(uuid())
+  roomCode    String?       @db.VarChar(10)
+  winnerId    String?       @db.VarChar(36)
+  totalRounds Int           @default(1)
+  createdAt   DateTime      @default(now())
+  endedAt     DateTime?
+  players     MatchPlayer[]
+
+  @@map("matches")
+}
+
+model MatchPlayer {
+  id        String   @id @default(uuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String   @db.VarChar(50)
+  isBot     Boolean  @default(false)
+  finalRank Int
+  points    Int
+
+  @@map("match_players")
+}
+

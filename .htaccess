@@ -1,0 +1,17 @@
+# WampServer Apache configuration for Tiến Lên Checkmate
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /tienlen/
+  
+  # Allow direct access to public assets
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Redirect all other requests to index.php
+  RewriteRule ^ index.php [L]
+</IfModule>
+
+# Set UTF-8 encoding
+AddDefaultCharset UTF-8
+
