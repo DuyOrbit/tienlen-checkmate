@@ -225,21 +225,43 @@ io.on('connection', (socket) => {
   // 4. Thêm Bot vào phòng chờ
   socket.on('add_bot_to_room', (callback?: ActionCallback) => {
     const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
     const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (room && room.state.phase === 'WAITING') {
-      const res = room.addBot();
-      if (callback) callback(res);
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
     }
+    if (room.state.phase !== 'WAITING') {
+      if (callback) callback({ success: false, message: 'Phòng đã bắt đầu trận đấu!' });
+      return;
+    }
+    if (!room.isHost(playerId)) {
+      if (callback) callback({ success: false, message: 'Chỉ chủ phòng mới có quyền thêm Bot!' });
+      return;
+    }
+    const res = room.addBot();
+    if (callback) callback(res);
   });
 
   // 5. Bắt đầu ván đấu từ phòng chờ
   socket.on('start_custom_game', (callback?: ActionCallback) => {
     const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
     const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (room && room.state.phase === 'WAITING') {
-      const res = room.startCustomMatch();
-      if (callback) callback(res);
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
     }
+    if (room.state.phase !== 'WAITING') {
+      if (callback) callback({ success: false, message: 'Trận đấu đang diễn ra!' });
+      return;
+    }
+    if (!room.isHost(playerId)) {
+      if (callback) callback({ success: false, message: 'Chỉ chủ phòng mới có quyền bắt đầu trận đấu!' });
+      return;
+    }
+    const res = room.startCustomMatch();
+    if (callback) callback(res);
   });
 
   // 6. Rời phòng
@@ -264,12 +286,17 @@ io.on('connection', (socket) => {
   });
 
   // 7. Chọn Lõi
-  socket.on('select_augment', (data: { augmentId: string }) => {
+  socket.on('select_augment', (data: { augmentId: string }, callback?: ActionCallback) => {
     const roomCode = socket.data.roomCode;
     const playerId = socket.data.playerId;
     const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (room && playerId) {
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
+    }
+    if (playerId) {
       room.selectAugment(playerId, data.augmentId);
+      if (callback) callback({ success: true, message: 'Đã chọn Lõi thành công' });
     }
   });
 
@@ -278,7 +305,11 @@ io.on('connection', (socket) => {
     const roomCode = socket.data.roomCode;
     const playerId = socket.data.playerId;
     const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (room && playerId) {
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
+    }
+    if (playerId) {
       const result = room.playCards(playerId, data.cardIds);
       if (callback) callback(result);
     }
@@ -289,19 +320,35 @@ io.on('connection', (socket) => {
     const roomCode = socket.data.roomCode;
     const playerId = socket.data.playerId;
     const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (room && playerId) {
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
+    }
+    if (playerId) {
       const result = room.passTurn(playerId);
       if (callback) callback(result);
     }
   });
 
   // 10. Tiếp tục round mới
-  socket.on('next_round', () => {
+  socket.on('next_round', (callback?: ActionCallback) => {
     const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
     const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (room && room.state.phase === 'ROUND_END') {
-      room.startNewRound();
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
     }
+    if (room.state.phase !== 'ROUND_END') {
+      if (callback) callback({ success: false, message: 'Chưa kết thúc ván đấu!' });
+      return;
+    }
+    if (!room.isHost(playerId)) {
+      if (callback) callback({ success: false, message: 'Chỉ chủ phòng mới có quyền bắt đầu ván tiếp theo!' });
+      return;
+    }
+    room.startNewRound();
+    if (callback) callback({ success: true, message: 'Bắt đầu ván mới thành công!' });
   });
 
   socket.on('disconnect', () => {

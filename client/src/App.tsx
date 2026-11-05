@@ -276,7 +276,11 @@ export const App: React.FC = () => {
   // 6. Start Match from Waiting Room
   const handleStartCustomGame = () => {
     if (socket && isConnected) {
-      socket.emit('start_custom_game');
+      socket.emit('start_custom_game', (res: any) => {
+        if (res && !res.success) {
+          alert(res.message);
+        }
+      });
     } else {
       handleStartBotGame();
     }
@@ -285,7 +289,11 @@ export const App: React.FC = () => {
   // 7. Add Bot into Waiting Room
   const handleAddBotToRoom = () => {
     if (socket && isConnected) {
-      socket.emit('add_bot_to_room');
+      socket.emit('add_bot_to_room', (res: any) => {
+        if (res && !res.success) {
+          alert(res.message);
+        }
+      });
     } else {
       setGameState((prev) => {
         if (!prev || prev.players.length >= 4) return prev;
@@ -391,7 +399,11 @@ export const App: React.FC = () => {
   // Next round
   const handleNextRound = () => {
     if (!socket) return;
-    socket.emit('next_round');
+    socket.emit('next_round', (res: any) => {
+      if (res && !res.success) {
+        setActionError(res.message);
+      }
+    });
   };
 
   // Logout
