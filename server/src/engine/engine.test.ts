@@ -126,10 +126,21 @@ function runTests() {
   console.assert(playerA.canPickAugment === false, 'Player A >= 12 pts must be purged and play chay');
   console.log('✔ Test 8: Luật cân bằng 12 điểm (Tước Lõi, Đánh Chay): PASSED');
 
-  // Round 3: playerA lại về Top 1 (+4đ -> 19đ >= 16đ) -> Kích hoạt CHECKMATE VÔ ĐỊCH!
+  // Round 3: playerA lại về Top 1 (+4đ -> 19đ >= 16đ) -> Đủ điều kiện Checkmate nhưng CHƯA THẮNG NGAY!
   const round3Result = finalizeRoundScores([playerA, playerB, dummyP3, dummyP4]);
-  console.assert(round3Result.checkmateWinner?.id === 'pA', 'Player A must win by Checkmate!');
-  console.log('✔ Test 9: Luật Checkmate 16 điểm và Vô Địch Toàn Trận: PASSED');
+  console.assert(round3Result.checkmateWinner === null, 'Vừa đạt >= 16đ ở round này thì CHƯA THẮNG luôn');
+  console.assert(playerA.isCheckmate === true, 'Player A phải được mở khóa trạng thái Checkmate Eligible');
+
+  // Round 4: playerA về Top 2 (+2đ -> 21đ) -> Chưa thắng vì không về Top 1
+  playerA.rankInRound = 2;
+  const round4Result = finalizeRoundScores([playerA, playerB, dummyP3, dummyP4]);
+  console.assert(round4Result.checkmateWinner === null, 'Đã đủ điều kiện Checkmate nhưng về Top 2 thì vẫn chưa thắng');
+
+  // Round 5: playerA về Top 1 một lần nữa -> KÍCH HOẠT CHECKMATE VÔ ĐỊCH TOÀN TRẬN!
+  playerA.rankInRound = 1;
+  const round5Result = finalizeRoundScores([playerA, playerB, dummyP3, dummyP4]);
+  console.assert(round5Result.checkmateWinner?.id === 'pA', 'Player A đã đủ điều kiện Checkmate và về Top 1 -> Thắng trận!');
+  console.log('✔ Test 9: Luật Checkmate 16 điểm và Vô Địch Toàn Trận (Mở Checkmate -> Thêm 1 lần Top 1): PASSED');
 
   // Test 10: Redact State bảo mật bài đối thủ
   const room = new GameRoom('TEST-1', null as any, () => {});

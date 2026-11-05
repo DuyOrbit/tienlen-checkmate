@@ -198,6 +198,11 @@ export function finalizeRoundScores(players: PlayerState[]): {
 
     notes[p.id] = [];
 
+    // Lưu lại trạng thái Checkmate trước khi cộng điểm round này:
+    // Chỉ người chơi ĐÃ ĐỦ ĐIỀU KIỆN CHECKMATE TỪ TRƯỚC ROUND NÀY (isCheckmate === true hoặc totalPoints >= 16 từ trước)
+    // mới có thể kích hoạt chiến thắng khi về nhất ở round này.
+    const wasAlreadyCheckmateEligible = p.isCheckmate || p.totalPoints >= 16;
+
     // Áp dụng modifier từ Lõi nếu chưa chạm mốc 12 điểm
     if (p.totalPoints < 12) {
       const bonus = evaluateAugmentBonuses(p, base);
@@ -214,12 +219,15 @@ export function finalizeRoundScores(players: PlayerState[]): {
       p.activeAugments = [];
     }
 
-    // Kiểm tra điều kiện Checkmate 16: Phải >= 16 điểm VÀ giành Top 1 ở round này
+    // Kiểm tra điều kiện Checkmate 16:
+    // 1. Trận chỉ kết thúc khi người ĐÃ ĐỦ ĐIỀU KIỆN CHECKMATE TỪ TRƯỚC giành thêm 1 lần Top 1
+    if (wasAlreadyCheckmateEligible && p.rankInRound === 1 && !checkmateWinner) {
+      checkmateWinner = p;
+    }
+
+    // 2. Nếu điểm số sau round này >= 16: MỞ KHÓA TRẠNG THÁI CHECKMATE (cho các round tiếp theo)
     if (p.totalPoints >= 16) {
       p.isCheckmate = true;
-      if (p.rankInRound === 1 && !checkmateWinner) {
-        checkmateWinner = p;
-      }
     }
 
     // Trừ 1 round thời hạn của các Lõi còn lại

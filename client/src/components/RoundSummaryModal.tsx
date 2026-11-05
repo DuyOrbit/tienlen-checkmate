@@ -56,11 +56,11 @@ export const RoundSummaryModal: React.FC<RoundSummaryModalProps> = ({ state, onN
                   <div>
                     <div className="font-bold text-sm leading-tight">{p.name}</div>
                     <div className={`text-[10px] ${isTop1 ? 'text-[#92400e]' : 'text-[#64748b]'}`}>
-                      {p.totalPoints >= 12 && (
+                      {p.totalPoints >= 12 && !p.isCheckmate && (
                         <span className="text-[#f87171] mr-1">⚡ Đánh chay (≥ 12đ)</span>
                       )}
-                      {p.totalPoints >= 16 && (
-                        <span className="text-[#eab308] font-black">👑 CHECKMATE READY</span>
+                      {p.isCheckmate && (
+                        <span className="text-[#eab308] font-black">👑 MỞ CHECKMATE (Cần 1 lần Top 1 để thắng)</span>
                       )}
                     </div>
                   </div>

@@ -748,13 +748,16 @@ export class GameRoom {
       const added = roundPoints[p.id] || 0;
       const playerNotes = notes[p.id]?.length ? ` (${notes[p.id].join(', ')})` : '';
       this.state.log.push(`${p.name} nhận +${added} điểm round này${playerNotes}. Tổng: ${p.totalPoints}đ`);
+      if (p.isCheckmate && !checkmateWinner && p.totalPoints - added < 16) {
+        this.state.log.push(`🔥 ${p.name} đã chạm mốc ${p.totalPoints}đ (≥ 16đ) -> ĐỦ ĐIỀU KIỆN CHECKMATE! Cần thêm 1 lần Top 1 ở các round sau để vô địch!`);
+      }
     }
 
     // KIỂM TRA ĐIỀU KIỆN CHECKMATE KẾT THÚC TOÀN TRẬN
     if (checkmateWinner) {
       this.state.phase = 'MATCH_OVER';
       this.state.winnerId = checkmateWinner.id;
-      this.state.log.push(`👑 CHECKMATE! ${checkmateWinner.name} đã chạm mốc 16 điểm và giành Top 1 -> VÔ ĐỊCH TOÀN TRẬN!`);
+      this.state.log.push(`👑 CHECKMATE! ${checkmateWinner.name} (đã đủ điều kiện Checkmate) vừa giành Top 1 -> CHÍNH THỨC VÔ ĐỊCH TOÀN TRẬN!`);
 
       // Lưu kết quả trận đấu vào MySQL Database
       await this.saveMatchToDb();
