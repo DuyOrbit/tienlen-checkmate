@@ -240,11 +240,23 @@ export class GameRoom {
       const toiTrang = checkToiTrang(p.hand);
       if (toiTrang) {
         toiTrangPlayer = p;
-        this.state.log.push(`🎉 ${p.name} ĂN TRẮNG (${toiTrang})! Tự động giành TOP 1 (+5 điểm)!`);
+        this.state.log.push(`🎉 ${p.name} ĂN TRẮNG (${toiTrang})! Tự động giành TOP 1 (+4 điểm)!`);
         p.rankInRound = 1;
         this.state.finishOrder.push(p.id);
         break;
       }
+    }
+
+    if (toiTrangPlayer) {
+      // Khi có người Ăn Trắng, round kết thúc ngay lập tức, những người còn lại xếp Top 4
+      for (const other of this.state.players) {
+        if (other.id !== toiTrangPlayer.id) {
+          other.rankInRound = 4;
+          this.state.finishOrder.push(other.id);
+        }
+      }
+      this.endRound();
+      return;
     }
 
     // 2. Chuyển sang giai đoạn Chọn Lõi (Augment Selection)
@@ -413,7 +425,19 @@ export class GameRoom {
     // Nếu tất cả người khác đã pass (chỉ còn lại người đánh nước cuối cùng)
     if (nonPassedActive.length <= 1) {
       // Vòng mới! Xóa bài trên bàn, reset hasPassed
-      const trickWinner = nonPassedActive.length === 1 ? nonPassedActive[0] : activePlayers[0];
+      let trickWinner = nonPassedActive.length === 1 ? nonPassedActive[0] : null;
+      if (!trickWinner) {
+        // Người đánh nước cuối cùng đã hết bài và tất cả người khác đều đã pass
+        // Nhường quyền mở vòng mới cho người kế tiếp còn bài theo chiều kim đồng hồ
+        const lastMovePlayerId = this.state.lastValidMove?.playerId;
+        const lastMoveIdx = this.state.players.findIndex((p) => p.id === lastMovePlayerId);
+        let nextIdx = lastMoveIdx !== -1 ? (lastMoveIdx + 1) % this.state.players.length : 0;
+        while (this.state.players[nextIdx].hand.length === 0) {
+          nextIdx = (nextIdx + 1) % this.state.players.length;
+        }
+        trickWinner = this.state.players[nextIdx];
+      }
+
       this.state.lastValidMove = null;
       for (const p of this.state.players) {
         p.hasPassed = false;

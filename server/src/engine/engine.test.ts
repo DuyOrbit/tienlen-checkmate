@@ -131,7 +131,7 @@ function runTests() {
   console.assert(round3Result.checkmateWinner?.id === 'pA', 'Player A must win by Checkmate!');
   console.log('✔ Test 9: Luật Checkmate 16 điểm và Vô Địch Toàn Trận: PASSED');
 
-  // Test 10: State Redaction (Người A không bao giờ nhận được hand của người B)
+  // Test 10: Redact State bảo mật bài đối thủ
   const room = new GameRoom('TEST-1', null as any, () => {});
   room.initVsBots('user-A', 'Player A');
   const userARedacted = room.getRedactedState('user-A');
@@ -152,7 +152,12 @@ function runTests() {
   console.assert(pBInBState.hand.length === 13, 'User B must see their own cards');
   console.log('✔ Test 10: Redact State bảo mật bài đối thủ: PASSED');
 
-  console.log('🎉 TOÀN BỘ 10 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
+  // Test 11: Ăn Trắng kết thúc ván ngay lập tức
+  const toiTrangHand = [c2s, c2c, c2d, c2h];
+  console.assert(checkToiTrang(toiTrangHand) === 'TU_QUY_2', 'Tứ quý 2 phải nhận diện là TU_QUY_2');
+  console.log('✔ Test 11: Nhận diện Ăn Trắng (Tứ quý 2): PASSED');
+
+  console.log('🎉 TOÀN BỘ 11 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 
 runTests();
