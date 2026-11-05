@@ -19,7 +19,7 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({
   onRerollSlot,
 }) => {
   const [selectedId, setSelectedId] = useState<string>(augments[0]?.id || '');
-  const [timeLeft, setTimeLeft] = useState<number>(10);
+  const [timeLeft, setTimeLeft] = useState<number>(25);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
 
   // Cập nhật selectedId khi augments thay đổi sau khi roll
@@ -29,7 +29,7 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({
     }
   }, [augments]);
 
-  // Auto-countdown 10s
+  // Auto-countdown 25s
   useEffect(() => {
     if (timeLeft <= 0) {
       if (selectedId) onSelect(selectedId);
