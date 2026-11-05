@@ -8,8 +8,12 @@ import { BotAI } from '../bot/botAI.js';
 
 export class GameRoom {
   public state: MatchState;
+  public hostId: string = '';
+  public onRoomEmpty?: (roomCode: string) => void;
   private prisma: PrismaClient;
   private onStateChange: (state: MatchState) => void;
+  private botTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(roomCode: string, prisma: PrismaClient, onStateChange: (state: MatchState) => void) {
     this.prisma = prisma;
@@ -33,6 +37,7 @@ export class GameRoom {
 
   // Khởi tạo phòng chơi với 3 Bot
   public initVsBots(humanPlayerId: string, humanName: string) {
+    this.hostId = humanPlayerId;
     const bots: PlayerState[] = [
       {
         id: humanPlayerId,
@@ -102,6 +107,7 @@ export class GameRoom {
 
   // Khởi tạo phòng chờ tùy chọn nhiều người (Sảnh chờ Bạn Bè)
   public initCustomRoom(hostId: string, hostName: string): void {
+    this.hostId = hostId;
     this.state.phase = 'WAITING';
     this.state.players = [
       {
@@ -432,13 +438,19 @@ export class GameRoom {
     this.triggerBotTurnIfNeeded();
   }
 
-  private triggerBotTurnIfNeeded() {
+  public triggerBotTurnIfNeeded() {
     if (this.state.phase !== 'PLAYING') return;
     const currentP = this.state.players.find((p) => p.id === this.state.currentTurnPlayerId);
     if (!currentP || !currentP.isBot) return;
 
+    if (this.botTimeout) {
+      clearTimeout(this.botTimeout);
+      this.botTimeout = null;
+    }
+
     // Delay 750ms để người chơi nhìn rõ nhịp độ trận đấu
-    setTimeout(() => {
+    this.botTimeout = setTimeout(() => {
+      this.botTimeout = null;
       if (this.state.phase !== 'PLAYING' || this.state.currentTurnPlayerId !== currentP.id) return;
       const lastCombo = this.state.lastValidMove ? this.state.lastValidMove.combo : null;
       const chosenCards = BotAI.makeMove(currentP.hand, lastCombo);
@@ -449,6 +461,148 @@ export class GameRoom {
         this.passTurn(currentP.id);
       }
     }, 750);
+  }
+
+  public isHost(playerId: string): boolean {
+    return this.hostId === playerId || this.state.players[0]?.id === playerId;
+  }
+
+  public hasAnyHuman(): boolean {
+    return this.state.players.some((p) => !p.isBot || this.reconnectTimers.has(p.id));
+  }
+
+  public cleanup() {
+    if (this.botTimeout) {
+      clearTimeout(this.botTimeout);
+      this.botTimeout = null;
+    }
+    for (const [_, timer] of this.reconnectTimers) {
+      clearTimeout(timer);
+    }
+    this.reconnectTimers.clear();
+  }
+
+  public removePlayer(playerId: string): { roomEmpty: boolean } {
+    const idx = this.state.players.findIndex((p) => p.id === playerId);
+    if (idx === -1) return { roomEmpty: this.state.players.length === 0 };
+
+    const removed = this.state.players.splice(idx, 1)[0];
+    this.state.log.push(`🚪 ${removed.name} đã rời phòng.`);
+
+    // Nếu người rời là chủ phòng, chuyển quyền chủ phòng cho người kế tiếp
+    if (this.hostId === playerId) {
+      const nextHuman = this.state.players.find((p) => !p.isBot);
+      if (nextHuman) {
+        this.hostId = nextHuman.id;
+        this.state.log.push(`👑 ${nextHuman.name} trở thành chủ phòng mới!`);
+      } else if (this.state.players.length > 0) {
+        this.hostId = this.state.players[0].id;
+      }
+    }
+
+    const remainingHumans = this.state.players.filter((p) => !p.isBot);
+    if (remainingHumans.length === 0) {
+      this.cleanup();
+      return { roomEmpty: true };
+    }
+
+    this.broadcast();
+    return { roomEmpty: false };
+  }
+
+  public handlePlayerLeave(playerId: string): { roomEmpty: boolean } {
+    if (this.state.phase === 'WAITING') {
+      return this.removePlayer(playerId);
+    }
+
+    const otherHumans = this.state.players.filter((p) => !p.isBot && p.id !== playerId);
+    if (otherHumans.length === 0) {
+      this.cleanup();
+      return { roomEmpty: true };
+    }
+
+    const p = this.state.players.find((pl) => pl.id === playerId);
+    if (p) {
+      p.isBot = true;
+      p.name = `${p.name} (Bot)`;
+      this.state.log.push(`🤖 ${p.name} đã rời phòng, Bot tiếp quản ghế!`);
+      if (this.state.phase === 'AUGMENT_SELECT' && this.state.augmentChoices[playerId]) {
+        const picked = BotAI.pickAugment(this.state.augmentChoices[playerId], p.hand, p.totalPoints);
+        this.selectAugment(playerId, picked.id);
+      } else if (this.state.phase === 'PLAYING' && this.state.currentTurnPlayerId === playerId) {
+        this.triggerBotTurnIfNeeded();
+      }
+      this.broadcast();
+    }
+    return { roomEmpty: false };
+  }
+
+  public handlePlayerDisconnect(playerId: string): { roomEmpty: boolean } {
+    const player = this.state.players.find((p) => p.id === playerId);
+    if (!player || player.isBot) {
+      return { roomEmpty: !this.hasAnyHuman() };
+    }
+
+    // Nếu đang ở phòng chờ, xóa người chơi ngay
+    if (this.state.phase === 'WAITING') {
+      return this.removePlayer(playerId);
+    }
+
+    // Nếu giữa ván: Cho khoảng chờ kết nối lại (30s)
+    this.state.log.push(`⚠️ ${player.name} bị ngắt kết nối! Đang chờ kết nối lại (30s)...`);
+    this.broadcast();
+
+    if (this.reconnectTimers.has(playerId)) {
+      clearTimeout(this.reconnectTimers.get(playerId)!);
+    }
+
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(playerId);
+      // Hết 30s mà chưa vào lại -> Bot tiếp quản ghế để ván không bị kẹt
+      if (this.state.phase !== 'MATCH_OVER') {
+        player.isBot = true;
+        player.name = `${player.name} (Bot)`;
+        this.state.log.push(`🤖 Hết thời gian chờ, Bot đã tiếp quản ghế của ${player.name}!`);
+
+        if (this.state.phase === 'AUGMENT_SELECT' && this.state.augmentChoices[playerId]) {
+          const picked = BotAI.pickAugment(this.state.augmentChoices[playerId], player.hand, player.totalPoints);
+          this.selectAugment(playerId, picked.id);
+        } else if (this.state.phase === 'PLAYING' && this.state.currentTurnPlayerId === playerId) {
+          this.triggerBotTurnIfNeeded();
+        }
+
+        this.broadcast();
+      }
+
+      if (!this.hasAnyHuman()) {
+        this.cleanup();
+        if (this.onRoomEmpty) {
+          this.onRoomEmpty(this.state.roomCode);
+        }
+      }
+    }, 30000);
+
+    this.reconnectTimers.set(playerId, timer);
+    return { roomEmpty: false };
+  }
+
+  public handlePlayerReconnect(playerId: string): boolean {
+    const player = this.state.players.find((p) => p.id === playerId);
+    if (!player) return false;
+
+    if (this.reconnectTimers.has(playerId)) {
+      clearTimeout(this.reconnectTimers.get(playerId)!);
+      this.reconnectTimers.delete(playerId);
+    }
+
+    if (player.isBot) {
+      player.isBot = false;
+      player.name = player.name.replace(/\s*\(Bot\)$/, '');
+    }
+
+    this.state.log.push(`🔌 ${player.name} đã kết nối lại ván đấu!`);
+    this.broadcast();
+    return true;
   }
 
   private async endRound() {

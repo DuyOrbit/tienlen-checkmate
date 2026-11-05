@@ -136,6 +136,19 @@ io.on('connection', (socket) => {
     isGuest: socket.data.isGuest,
   });
 
+  // Kiểm tra Reconnection: Nếu người chơi đã có ghế trong một phòng đang hoạt động
+  for (const [code, r] of rooms) {
+    const existingP = r.state.players.find((p) => p.id === socket.data.playerId);
+    if (existingP) {
+      socket.join(code);
+      socket.data.roomCode = code;
+      r.handlePlayerReconnect(socket.data.playerId);
+      socket.emit('game_state', r.getRedactedState(socket.data.playerId));
+      console.log(`[SOCKET] Reconnected ${existingP.name} (${socket.data.playerId}) to room ${code}`);
+      break;
+    }
+  }
+
   // 1. Chơi với Bot (Singleplayer / Quick Match)
   socket.on('start_bot_game', (data?: { playerName?: string }) => {
     const playerId = socket.data.playerId;
@@ -146,6 +159,10 @@ io.on('connection', (socket) => {
     const room = new GameRoom(roomCode, prisma, () => {
       broadcastRoomState(room);
     });
+    room.onRoomEmpty = (code) => {
+      rooms.delete(code);
+      console.log(`[GAME] Room ${code} empty callback -> deleted`);
+    };
 
     rooms.set(roomCode, room);
     socket.data.roomCode = roomCode;
@@ -166,6 +183,10 @@ io.on('connection', (socket) => {
     const room = new GameRoom(roomCode, prisma, () => {
       broadcastRoomState(room);
     });
+    room.onRoomEmpty = (code) => {
+      rooms.delete(code);
+      console.log(`[GAME] Room ${code} empty callback -> deleted`);
+    };
 
     rooms.set(roomCode, room);
     socket.data.roomCode = roomCode;
@@ -222,12 +243,24 @@ io.on('connection', (socket) => {
   });
 
   // 6. Rời phòng
-  socket.on('leave_room', () => {
+  socket.on('leave_room', (callback?: ActionCallback) => {
     const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
     if (roomCode) {
       socket.leave(roomCode);
       delete socket.data.roomCode;
+
+      const room = rooms.get(roomCode);
+      if (room) {
+        const { roomEmpty } = room.handlePlayerLeave(playerId);
+        if (roomEmpty) {
+          room.cleanup();
+          rooms.delete(roomCode);
+          console.log(`[GAME] Destroyed room ${roomCode} on leave (empty)`);
+        }
+      }
     }
+    if (callback) callback({ success: true, message: 'Đã rời phòng' });
   });
 
   // 7. Chọn Lõi
@@ -272,7 +305,20 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`[SOCKET] Client disconnected: ${socket.id}`);
+    console.log(`[SOCKET] Client disconnected: ${socket.id} (${socket.data.playerId})`);
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    if (roomCode) {
+      const room = rooms.get(roomCode);
+      if (room) {
+        const { roomEmpty } = room.handlePlayerDisconnect(playerId);
+        if (roomEmpty) {
+          room.cleanup();
+          rooms.delete(roomCode);
+          console.log(`[GAME] Room ${roomCode} cleaned up after disconnect`);
+        }
+      }
+    }
   });
 });
 
