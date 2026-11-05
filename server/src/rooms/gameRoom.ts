@@ -10,6 +10,7 @@ export class GameRoom {
   public state: MatchState;
   public hostId: string = '';
   public rerollCounts: Record<string, number> = {};
+  public rerolledSlots: Record<string, boolean[]> = {};
   public onRoomEmpty?: (roomCode: string) => void;
   private prisma: PrismaClient;
   private onStateChange: (state: MatchState) => void;
@@ -263,9 +264,11 @@ export class GameRoom {
     // 2. Chuyển sang giai đoạn Chọn Lõi (Augment Selection)
     this.state.phase = 'AUGMENT_SELECT';
     this.rerollCounts = {};
+    this.rerolledSlots = {};
     for (const p of this.state.players) {
       if (p.canPickAugment) {
         this.rerollCounts[p.id] = 1;
+        this.rerolledSlots[p.id] = [false, false, false];
         this.state.augmentChoices[p.id] = getRandomAugments(3);
       } else {
         this.state.log.push(`⚡ ${p.name} đã chạm mốc 12 điểm -> Đánh chay, không được chọn Lõi!`);
@@ -334,6 +337,48 @@ export class GameRoom {
     return { success: true, message: 'Đổi Lõi thành công!', choices: newChoices };
   }
 
+  public rerollAugmentSlot(
+    playerId: string,
+    slotIndex: number
+  ): { success: boolean; message: string; newAugment?: Augment } {
+    if (this.state.phase !== 'AUGMENT_SELECT') {
+      return { success: false, message: 'Chưa phải lúc đổi Lõi!' };
+    }
+    const player = this.state.players.find((p) => p.id === playerId);
+    if (!player || !player.canPickAugment) {
+      return { success: false, message: 'Bạn không thể đổi Lõi!' };
+    }
+    if (slotIndex < 0 || slotIndex > 2) {
+      return { success: false, message: 'Vị trí Lõi không hợp lệ (0-2)!' };
+    }
+
+    if (!this.rerolledSlots[playerId]) {
+      this.rerolledSlots[playerId] = [false, false, false];
+    }
+    if (this.rerolledSlots[playerId][slotIndex]) {
+      return { success: false, message: 'Lõi ở vị trí này đã được đổi 1 lần rồi!' };
+    }
+
+    const currentChoices = this.state.augmentChoices[playerId];
+    if (!currentChoices || currentChoices.length <= slotIndex) {
+      return { success: false, message: 'Không tìm thấy danh sách Lõi!' };
+    }
+
+    const excludeIds = currentChoices.map((a) => a.id);
+    const newAugments = getRandomAugments(1, excludeIds);
+    if (newAugments.length === 0) {
+      return { success: false, message: 'Không còn Lõi mới trong kho!' };
+    }
+
+    const newAugment = newAugments[0];
+    currentChoices[slotIndex] = newAugment;
+    this.rerolledSlots[playerId][slotIndex] = true;
+    this.state.log.push(`🎲 ${player.name} đã đổi riêng Lõi số ${slotIndex + 1}!`);
+    this.broadcast();
+
+    return { success: true, message: 'Đổi Lõi thành công!', newAugment };
+  }
+
   private beginPlayingPhase() {
     this.state.phase = 'PLAYING';
 
@@ -375,6 +420,13 @@ export class GameRoom {
     const incomingCombo = evaluateCombo(selectedCards);
     if (incomingCombo.type === 'INVALID') {
       return { success: false, message: 'Bộ bài không hợp lệ theo luật Tiến Lên Miền Nam' };
+    }
+
+    // Kiểm tra luật mở màn Round 1: Nước đi đầu tiên bắt buộc phải chứa lá 3 Bích (3-spades)
+    const isFirstMoveOfRound1 =
+      this.state.roundNumber === 1 && !this.state.lastValidMove && this.state.finishOrder.length === 0;
+    if (isFirstMoveOfRound1 && !cardIds.includes('3-spades')) {
+      return { success: false, message: 'Nước đi đầu tiên của ván 1 bắt buộc phải chứa lá 3 Bích (3♠)!' };
     }
 
     // Nếu có nước đi trước đó trên bàn trong vòng này
@@ -504,8 +556,10 @@ export class GameRoom {
     this.botTimeout = setTimeout(() => {
       this.botTimeout = null;
       if (this.state.phase !== 'PLAYING' || this.state.currentTurnPlayerId !== currentP.id) return;
+      const isFirstMoveOfRound1 =
+        this.state.roundNumber === 1 && !this.state.lastValidMove && this.state.finishOrder.length === 0;
       const lastCombo = this.state.lastValidMove ? this.state.lastValidMove.combo : null;
-      const chosenCards = BotAI.makeMove(currentP.hand, lastCombo);
+      const chosenCards = BotAI.makeMove(currentP.hand, lastCombo, isFirstMoveOfRound1);
 
       if (chosenCards && chosenCards.length > 0) {
         this.playCards(currentP.id, chosenCards.map((c) => c.id));
@@ -767,6 +821,11 @@ export class GameRoom {
         ...(this.rerollCounts[forPlayerId] !== undefined
           ? { [forPlayerId]: this.rerollCounts[forPlayerId] }
           : {}),
+      },
+      rerolledSlots: {
+        ...(this.rerolledSlots[forPlayerId] !== undefined
+          ? { [forPlayerId]: this.rerolledSlots[forPlayerId] }
+          : { [forPlayerId]: [false, false, false] }),
       },
     };
   }

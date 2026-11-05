@@ -396,12 +396,12 @@ export const App: React.FC = () => {
     socket.emit('select_augment', { augmentId });
   };
 
-  // Augment Reroll (Đổi Lõi)
-  const handleRerollAugments = () => {
+  // Augment Reroll theo từng thẻ riêng lẻ
+  const handleRerollAugmentSlot = (slotIndex: number) => {
     if (!socket) return;
     setActionError('');
-    socket.emit('reroll_augments', (res: any) => {
-      if (res && !res.success) {
+    socket.emit('reroll_augment_slot', { slotIndex }, (res: any) => {
+      if (res && !res.success && res.message) {
         setActionError(res.message);
       }
     });
@@ -1237,9 +1237,9 @@ export const App: React.FC = () => {
           <AugmentModal
             augments={gameState.augmentChoices[humanPlayer.id]}
             hand={humanPlayer.hand}
-            rerollCount={gameState.rerollCounts?.[humanPlayer.id] ?? 1}
+            rerolledSlots={gameState.rerolledSlots?.[humanPlayer.id] || [false, false, false]}
             onSelect={handleAugmentSelect}
-            onReroll={handleRerollAugments}
+            onRerollSlot={handleRerollAugmentSlot}
           />
         )}
 

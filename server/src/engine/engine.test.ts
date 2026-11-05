@@ -157,7 +157,43 @@ function runTests() {
   console.assert(checkToiTrang(toiTrangHand) === 'TU_QUY_2', 'Tứ quý 2 phải nhận diện là TU_QUY_2');
   console.log('✔ Test 11: Nhận diện Ăn Trắng (Tứ quý 2): PASSED');
 
-  console.log('🎉 TOÀN BỘ 11 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
+  // Test 12: Đổi Lõi theo từng slot riêng biệt (rerollAugmentSlot)
+  const roomReroll = new GameRoom('TEST-REROLL', null as any, () => {});
+  roomReroll.initVsBots('user-A', 'Player A');
+  // Chuyển sang phase AUGMENT_SELECT
+  const initialChoiceSlot0 = roomReroll.state.augmentChoices['user-A']?.[0]?.id;
+  const initialChoiceSlot1 = roomReroll.state.augmentChoices['user-A']?.[1]?.id;
+  const rerollRes = roomReroll.rerollAugmentSlot('user-A', 0);
+  console.assert(rerollRes.success === true, 'Đổi slot 0 lần đầu phải thành công');
+  console.assert(roomReroll.state.augmentChoices['user-A'][1].id === initialChoiceSlot1, 'Slot 1 không được đổi');
+  const rerollAgainRes = roomReroll.rerollAugmentSlot('user-A', 0);
+  console.assert(rerollAgainRes.success === false, 'Đổi slot 0 lần thứ 2 phải bị từ chối');
+  console.log('✔ Test 12: Đổi Lõi từng slot độc lập (mỗi slot 1 lần): PASSED');
+
+  // Test 13: Bắt buộc mở màn Round 1 phải chứa lá 3 Bích
+  const room3Bich = new GameRoom('TEST-3BICH', null as any, () => {});
+  room3Bich.initVsBots('user-A', 'Player A');
+  // Đảm bảo user-A có 3 Bích và bắt đầu chơi
+  const spade3Card = { id: '3-spades', rank: '3', suit: 'spades', rankValue: 3, suitValue: 1 } as Card;
+  const nonSpade3Card = { id: '4-spades', rank: '4', suit: 'spades', rankValue: 4, suitValue: 1 } as Card;
+  const pA = room3Bich.state.players.find((p) => p.id === 'user-A')!;
+  pA.hand = [spade3Card, nonSpade3Card];
+  room3Bich.state.phase = 'PLAYING';
+  room3Bich.state.currentTurnPlayerId = 'user-A';
+  room3Bich.state.roundNumber = 1;
+  room3Bich.state.lastValidMove = null;
+  room3Bich.state.finishOrder = [];
+
+  // Thử đánh 4 bích (không có 3 bích) -> Phải thất bại
+  const illegalMove = room3Bich.playCards('user-A', ['4-spades']);
+  console.assert(illegalMove.success === false, 'Nước đi mở màn round 1 không có 3 bích phải bị chặn');
+
+  // Đánh 3 bích -> Thành công
+  const legalMove = room3Bich.playCards('user-A', ['3-spades']);
+  console.assert(legalMove.success === true, 'Nước đi mở màn round 1 có 3 bích phải thành công');
+  console.log('✔ Test 13: Nước đi đầu tiên Round 1 bắt buộc có 3 Bích: PASSED');
+
+  console.log('🎉 TOÀN BỘ 13 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 
 runTests();

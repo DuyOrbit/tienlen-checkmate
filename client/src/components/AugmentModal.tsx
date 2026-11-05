@@ -6,17 +6,17 @@ import { CardView } from './CardView.js';
 interface AugmentModalProps {
   augments: Augment[];
   hand: Card[];
-  rerollCount?: number;
+  rerolledSlots?: boolean[];
   onSelect: (augmentId: string) => void;
-  onReroll?: () => void;
+  onRerollSlot?: (slotIndex: number) => void;
 }
 
 export const AugmentModal: React.FC<AugmentModalProps> = ({
   augments,
   hand,
-  rerollCount = 1,
+  rerolledSlots = [false, false, false],
   onSelect,
-  onReroll,
+  onRerollSlot,
 }) => {
   const [selectedId, setSelectedId] = useState<string>(augments[0]?.id || '');
   const [timeLeft, setTimeLeft] = useState<number>(10);
@@ -272,6 +272,26 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({
                 <div className="rounded-xl py-1 px-2 bg-black/10 text-center text-[9px] font-bold text-[#334155]">
                   {isSelected ? `Đã chọn · ${theme.footerTag}` : theme.footerTag}
                 </div>
+
+                {/* Nút Đổi riêng thẻ này (mỗi thẻ đổi được 1 lần) */}
+                {onRerollSlot && (
+                  <button
+                    type="button"
+                    disabled={rerolledSlots[idx]}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRerollSlot(idx);
+                    }}
+                    className={`mt-2 py-1.5 px-3 rounded-full text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow ${
+                      rerolledSlots[idx]
+                        ? 'bg-black/15 text-[#64748b] cursor-not-allowed opacity-60'
+                        : 'bg-[#0f172a] hover:bg-[#1e293b] text-[#fde047] hover:scale-[1.02] cursor-pointer border border-[#334155]'
+                    }`}
+                  >
+                    <Sparkles className="w-3 h-3 text-[#fde047]" />
+                    <span>{rerolledSlots[idx] ? 'Đã đổi' : '🎲 Đổi thẻ này'}</span>
+                  </button>
+                )}
               </div>
             );
           })}
@@ -305,25 +325,9 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({
 
         {/* Action Button & Disclaimer */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-3 w-full">
-          {onReroll && (
-            <button
-              type="button"
-              onClick={onReroll}
-              disabled={rerollCount <= 0}
-              className={`w-full sm:w-auto px-6 py-3 rounded-full font-heading font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md ${
-                rerollCount > 0
-                  ? 'bg-[#b45309] hover:bg-[#d97706] text-[#fef3c7] cursor-pointer hover:scale-[1.02]'
-                  : 'bg-[#292524] text-[#78716c] cursor-not-allowed opacity-60 border border-[#44403c]'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-[#fde047]" />
-              <span>ĐỔI LÕI (CÒN {rerollCount})</span>
-            </button>
-          )}
-
           <button
             onClick={handleConfirm}
-            className="w-full sm:w-64 py-3 rounded-full btn-squish-green font-heading font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
+            className="w-full sm:w-80 py-3 rounded-full btn-squish-green font-heading font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] transition-transform"
           >
             <Check className="w-4 h-4 stroke-[3]" />
             <span>XÁC NHẬN CHỌN LÕI</span>
@@ -331,7 +335,7 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({
         </div>
         <div className="text-center mt-2">
           <span className="text-[10px] text-[#94a3b8]">
-            Tự xác nhận khi hết giờ · Mỗi round được 1 lượt đổi Lõi miễn phí
+            Tự xác nhận khi hết giờ · Mỗi thẻ Lõi có thể bấm "🎲 Đổi thẻ này" riêng 1 lần
           </span>
         </div>
       </div>

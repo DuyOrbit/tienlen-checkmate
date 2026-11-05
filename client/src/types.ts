@@ -97,6 +97,7 @@ export interface MatchState {
   pointEvents: PointTransferEvent[];
   augmentChoices: Record<string, Augment[]>;
   rerollCounts?: Record<string, number>;
+  rerolledSlots?: Record<string, boolean[]>;
   winnerId: string | null;
 }
 

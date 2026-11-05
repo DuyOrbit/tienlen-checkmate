@@ -364,6 +364,19 @@ io.on('connection', (socket) => {
     if (callback) callback(result);
   });
 
+  // 11b. Đổi riêng 1 Lõi (Reroll Augment Slot)
+  socket.on('reroll_augment_slot', (data: { slotIndex: number }, callback?: ActionCallback) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
+    }
+    const result = room.rerollAugmentSlot(playerId, data?.slotIndex);
+    if (callback) callback(result);
+  });
+
   socket.on('disconnect', () => {
     console.log(`[SOCKET] Client disconnected: ${socket.id} (${socket.data.playerId})`);
     const roomCode = socket.data.roomCode;

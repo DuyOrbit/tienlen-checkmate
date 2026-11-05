@@ -35,7 +35,22 @@ export class BotAI {
   static makeMove(hand: Card[], lastCombo: Combo | null, isFirstRoundMove: boolean = false): Card[] | null {
     const sorted = sortCards(hand);
 
-    // 1. Nếu được quyền ra bài đầu vòng (hoặc người trước đã qua lượt hết)
+    // 1. Nước mở màn ván 1: Bắt buộc phải chứa lá 3 Bích (3-spades)
+    if (isFirstRoundMove) {
+      const spade3 = sorted.find((c) => c.id === '3-spades');
+      if (spade3) {
+        // Thử tìm đôi nhỏ có chứa 3 bích
+        const pairs = findPairs(sorted);
+        const pairWithSpade3 = pairs.find((pair) => pair.some((c) => c.id === '3-spades'));
+        if (pairWithSpade3) {
+          return pairWithSpade3;
+        }
+        // Mặc định ra lá 3 bích
+        return [spade3];
+      }
+    }
+
+    // 2. Nếu được quyền ra bài đầu vòng (hoặc người trước đã qua lượt hết)
     if (!lastCombo || lastCombo.type === 'INVALID') {
       // Ưu tiên đánh rác nhỏ nhất trước (loại trừ heo)
       const nonHeoRacs = sorted.filter((c) => c.rankValue < 15);
