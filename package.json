@@ -4,13 +4,15 @@
   "private": true,
   "description": "Tiến Lên Checkmate & Point Augments - Cyberpunk Web Card Game",
   "scripts": {
+    "install:all": "npm install --include=dev && cd server && npm install --include=dev && cd ../client && npm install --include=dev",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npx prisma generate",
+    "build": "npm run install:all && npm run build:server && npm run build:client",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "start": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "build": "cd client && npm run build && cd ../server && npm run build"
+    "start": "cd server && npx tsx src/server.ts"
   },
-  "devDependencies": {
-    "concurrently": "^9.1.2",
-    "playwright-core": "^1.64.1"
+  "dependencies": {
+    "concurrently": "^9.1.2"
   }
 }
