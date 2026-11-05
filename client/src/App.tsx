@@ -327,11 +327,11 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedCardIds, gameState, socket]);
 
-  // Human player seat (South)
-  const humanPlayer = gameState?.players.find((p) => !p.isBot) || gameState?.players[0];
+  // Human player seat (South) - Lấy đúng người chơi có id trùng với chính mình
+  const humanPlayer = gameState?.players.find((p) => p.id === getPlayerId()) || null;
   const isHumanTurn =
     gameState?.phase === 'PLAYING' &&
-    gameState.currentTurnPlayerId === humanPlayer?.id;
+    Boolean(humanPlayer && gameState.currentTurnPlayerId === humanPlayer.id);
 
   // Toggle card selection
   const handleCardClick = (card: Card) => {
@@ -905,9 +905,15 @@ export const App: React.FC = () => {
   // -------------------------------------------------------------
   // VIEW 3: MAIN GAME ARENA (Bàn đấu bài)
   // -------------------------------------------------------------
-  const topOpponent = gameState.players[1] || gameState.players[0];
-  const leftOpponent = gameState.players[2] || gameState.players[0];
-  const rightOpponent = gameState.players[3] || gameState.players[0];
+  // Xoay mảng người chơi để chính mình luôn ở ghế dưới cùng, 3 đối thủ xếp theo chiều kim đồng hồ
+  const myPlayerId = getPlayerId();
+  const myIndex = gameState.players.findIndex((p) => p.id === myPlayerId);
+  const activeMyIndex = myIndex !== -1 ? myIndex : 0;
+  const numPlayers = gameState.players.length;
+
+  const leftOpponent = numPlayers > 1 ? gameState.players[(activeMyIndex + 1) % numPlayers] : gameState.players[0];
+  const topOpponent = numPlayers > 2 ? gameState.players[(activeMyIndex + 2) % numPlayers] : gameState.players[0];
+  const rightOpponent = numPlayers > 3 ? gameState.players[(activeMyIndex + 3) % numPlayers] : gameState.players[0];
 
   return (
     <div className="min-h-screen bg-[#161c18] text-[#f1f5f9] flex flex-col justify-between select-none overflow-x-hidden">
@@ -1008,13 +1014,12 @@ export const App: React.FC = () => {
             />
           </div>
 
-          {/* Left Seat: Cáo Nhỏ */}
+          {/* Left Seat */}
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
             <PlayerSeat
               player={leftOpponent}
               isCurrentTurn={gameState.currentTurnPlayerId === leftOpponent.id}
               position="left"
-              speechBubble="😆 Hé hé!"
               lastActionText={leftOpponent.hasPassed ? 'Đã bỏ lượt' : undefined}
             />
           </div>
@@ -1052,13 +1057,12 @@ export const App: React.FC = () => {
             )}
           </div>
 
-          {/* Right Seat: Thỏ Chill */}
+          {/* Right Seat */}
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
             <PlayerSeat
               player={rightOpponent}
               isCurrentTurn={gameState.currentTurnPlayerId === rightOpponent.id}
               position="right"
-              speechBubble="🐷"
               lastActionText={rightOpponent.hasPassed ? 'Đã bỏ lượt' : undefined}
             />
           </div>
