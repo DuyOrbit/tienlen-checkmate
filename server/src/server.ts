@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -12,6 +13,21 @@ import { createAdminRouter } from './admin/adminRoutes.js';
 import { GameRoom } from './rooms/gameRoom.js';
 
 dotenv.config();
+
+// Tự động chuẩn hóa SSL cho Cloud MySQL (TiDB Cloud / Aiven) với Prisma
+if (process.env.DATABASE_URL) {
+  let url = process.env.DATABASE_URL;
+  if (!url.includes('localhost') && !url.includes('127.0.0.1')) {
+    if (url.includes('ssl=')) {
+      url = url.replace(/ssl=[^&]*/, 'sslaccept=strict');
+    } else if (!url.includes('sslaccept=')) {
+      const separator = url.includes('?') ? '&' : '?';
+      url = `${url}${separator}sslaccept=strict`;
+    }
+    process.env.DATABASE_URL = url;
+    console.log('[PRISMA SSL] Đã chuẩn hóa kết nối bảo mật: sslaccept=strict');
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -190,6 +206,18 @@ app.get('*', (req, res, next) => {
 
 async function bootstrap() {
   console.log('--- KHỞI TẠO TIẾN LÊN CHECKMATE SERVER ---');
+
+  // Tự động push schema bảng vào Cloud Database nếu cần
+  if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost') && !process.env.DATABASE_URL.includes('127.0.0.1')) {
+    try {
+      console.log('[PRISMA AUTO PUSH] Đang tự động kiểm tra và đồng bộ bảng vào Cloud Database...');
+      execSync('npx prisma db push --skip-generate', { stdio: 'inherit' });
+      console.log('[PRISMA AUTO PUSH] Đồng bộ bảng thành công!');
+    } catch (pushErr: any) {
+      console.warn('[PRISMA AUTO PUSH NOTE]', pushErr.message);
+    }
+  }
+
   // 1. Đảm bảo MySQL Database tồn tại & Seed Admin
   const dbOk = await ensureDatabaseExists();
   if (dbOk) {
