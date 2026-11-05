@@ -104,5 +104,6 @@ export interface MatchState {
   log: string[];
   pointEvents: PointTransferEvent[];
   augmentChoices: Record<string, Augment[]>; // playerId -> 3 random choices
+  rerollCounts?: Record<string, number>; // playerId -> remaining reroll count
   winnerId: string | null; // Final checkmate winner
 }

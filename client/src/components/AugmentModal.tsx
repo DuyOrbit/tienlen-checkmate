@@ -6,13 +6,28 @@ import { CardView } from './CardView.js';
 interface AugmentModalProps {
   augments: Augment[];
   hand: Card[];
+  rerollCount?: number;
   onSelect: (augmentId: string) => void;
+  onReroll?: () => void;
 }
 
-export const AugmentModal: React.FC<AugmentModalProps> = ({ augments, hand, onSelect }) => {
+export const AugmentModal: React.FC<AugmentModalProps> = ({
+  augments,
+  hand,
+  rerollCount = 1,
+  onSelect,
+  onReroll,
+}) => {
   const [selectedId, setSelectedId] = useState<string>(augments[0]?.id || '');
   const [timeLeft, setTimeLeft] = useState<number>(10);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
+
+  // Cập nhật selectedId khi augments thay đổi sau khi roll
+  useEffect(() => {
+    if (augments.length > 0 && !augments.some((a) => a.id === selectedId)) {
+      setSelectedId(augments[0].id);
+    }
+  }, [augments]);
 
   // Auto-countdown 10s
   useEffect(() => {
@@ -37,7 +52,72 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({ augments, hand, onSe
     const id = aug.id.toLowerCase();
     const name = aug.name.toLowerCase();
 
-    if (id.includes('overclock') || name.includes('về nhất') || idx === 0) {
+    if (id.includes('high_roller') || name.includes('jackpot') || name.includes('neon')) {
+      return {
+        category: 'ĐỘT BIẾN',
+        badgeBg: 'bg-[#581c87]',
+        badgeText: 'text-[#f5d0fe]',
+        cardBg: 'bg-[#fae8ff]',
+        icon: '👑',
+        iconBg: 'bg-[#f0abfc]',
+        headline: '+3 điểm Quán Quân',
+        highlightText: aug.description || 'Về Top 1 nhận thêm +3 điểm thưởng.',
+        footerTag: 'Chỉ áp dụng trong 1 round',
+      };
+    }
+    if (id.includes('clutch') || name.includes('last stand') || name.includes('lật kèo')) {
+      return {
+        category: 'LẬT KÈO',
+        badgeBg: 'bg-[#831843]',
+        badgeText: 'text-[#fce7f3]',
+        cardBg: 'bg-[#fef9c3]',
+        icon: '🚀',
+        iconBg: 'bg-[#fef08a]',
+        headline: '+3 điểm lội ngược dòng',
+        highlightText: aug.description || 'Điểm thấp mà về Top 1/2 nhận thêm +3 điểm.',
+        footerTag: 'Hiệu lực 1 round',
+      };
+    }
+    if (id.includes('double') || name.includes('turbo')) {
+      return {
+        category: 'TỐC ĐỘ',
+        badgeBg: 'bg-[#1e1b4b]',
+        badgeText: 'text-[#e0e7ff]',
+        cardBg: 'bg-[#ede9fe]',
+        icon: '⚡',
+        iconBg: 'bg-[#ddd6fe]',
+        headline: '+1 điểm khi về Top 1/2',
+        highlightText: aug.description || 'Mỗi khi về Top 1 hoặc 2: nhận thêm +1 điểm.',
+        footerTag: 'Hiệu lực 2 round',
+      };
+    }
+    if (id.includes('comeback') || name.includes('phoenix')) {
+      return {
+        category: 'HỒI SINH',
+        badgeBg: 'bg-[#7c2d12]',
+        badgeText: 'text-[#ffedd5]',
+        cardBg: 'bg-[#ffedd5]',
+        icon: '🦅',
+        iconBg: 'bg-[#fed7aa]',
+        headline: '+2 điểm an ủi tích lũy',
+        highlightText: aug.description || 'Về Top 3 hoặc 4 vẫn có điểm thưởng.',
+        footerTag: 'Tự hủy sau 1 round',
+      };
+    }
+    if (id.includes('chop_defense') || name.includes('barrier')) {
+      return {
+        category: 'PHÒNG THỦ',
+        badgeBg: 'bg-[#134e4a]',
+        badgeText: 'text-[#ccfbf1]',
+        cardBg: 'bg-[#ccfbf1]',
+        icon: '🛡️',
+        iconBg: 'bg-[#99f6e4]',
+        headline: 'Chặn 1 lần thối/chặt heo',
+        highlightText: aug.description || 'Chặn toàn bộ điểm phạt khi bị chặt/thối heo.',
+        footerTag: 'Hiệu lực trong 2 round',
+      };
+    }
+    if (id.includes('overclock') || name.includes('về nhất')) {
       return {
         category: 'BỨT TỐC',
         badgeBg: 'bg-[#78350f]',
@@ -50,7 +130,7 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({ augments, hand, onSe
         footerTag: 'Chỉ áp dụng trong 1 ván',
       };
     }
-    if (id.includes('bounty') || id.includes('hunter') || name.includes('săn heo') || idx === 1) {
+    if (id.includes('bounty') || id.includes('hunter') || name.includes('săn heo')) {
       return {
         category: 'TẤN CÔNG',
         badgeBg: 'bg-[#15803d]',
@@ -63,6 +143,19 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({ augments, hand, onSe
         footerTag: 'Sẵn sàng săn heo',
       };
     }
+    if (id.includes('gambit') || name.includes('roulette')) {
+      return {
+        category: 'CƯỢC LỚN',
+        badgeBg: 'bg-[#991b1b]',
+        badgeText: 'text-[#fee2e2]',
+        cardBg: 'bg-[#ffe4e6]',
+        icon: '🔥',
+        iconBg: 'bg-[#fecdd3]',
+        headline: 'Top 1 nhận +7 điểm',
+        highlightText: 'Cược lớn: Top 1 nhận 7đ; các hạng khác 0đ.',
+        footerTag: 'Ăn cả ngã về không',
+      };
+    }
     return {
       category: 'PHÒNG THỦ',
       badgeBg: 'bg-[#374151]',
@@ -70,9 +163,9 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({ augments, hand, onSe
       cardBg: 'bg-[#e0f2fe]',
       icon: '🛡️',
       iconBg: 'bg-[#bae6fd]',
-      headline: 'Chặn 1 lần mất 2 điểm',
-      highlightText: 'Một lớp bảo vệ êm ái cho pha xui đầu tiên của bạn.',
-      footerTag: 'Tự kích hoạt khi bị phạt',
+      headline: aug.name,
+      highlightText: aug.description || 'Một nâng cấp chiến thuật hữu ích.',
+      footerTag: `Hiệu lực ${aug.durationRounds} round`,
     };
   };
 
@@ -211,15 +304,34 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({ augments, hand, onSe
         </div>
 
         {/* Action Button & Disclaimer */}
-        <div className="flex flex-col items-center gap-1.5 mt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-3 w-full">
+          {onReroll && (
+            <button
+              type="button"
+              onClick={onReroll}
+              disabled={rerollCount <= 0}
+              className={`w-full sm:w-auto px-6 py-3 rounded-full font-heading font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md ${
+                rerollCount > 0
+                  ? 'bg-[#b45309] hover:bg-[#d97706] text-[#fef3c7] cursor-pointer hover:scale-[1.02]'
+                  : 'bg-[#292524] text-[#78716c] cursor-not-allowed opacity-60 border border-[#44403c]'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-[#fde047]" />
+              <span>ĐỔI LÕI (CÒN {rerollCount})</span>
+            </button>
+          )}
+
           <button
             onClick={handleConfirm}
-            className="w-full sm:w-64 py-3 rounded-full btn-squish-green font-heading font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
+            className="w-full sm:w-64 py-3 rounded-full btn-squish-green font-heading font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2"
           >
-            <span>XÁC NHẬN</span>
+            <Check className="w-4 h-4 stroke-[3]" />
+            <span>XÁC NHẬN CHỌN LÕI</span>
           </button>
+        </div>
+        <div className="text-center mt-2">
           <span className="text-[10px] text-[#94a3b8]">
-            Tự xác nhận khi hết giờ · Chỉ có hiệu lực trong ván tiếp theo
+            Tự xác nhận khi hết giờ · Mỗi round được 1 lượt đổi Lõi miễn phí
           </span>
         </div>
       </div>

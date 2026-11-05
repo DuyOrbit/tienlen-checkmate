@@ -351,6 +351,19 @@ io.on('connection', (socket) => {
     if (callback) callback({ success: true, message: 'Bắt đầu ván mới thành công!' });
   });
 
+  // 11. Đổi Lõi (Reroll Augments)
+  socket.on('reroll_augments', (callback?: ActionCallback) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
+      return;
+    }
+    const result = room.rerollAugments(playerId);
+    if (callback) callback(result);
+  });
+
   socket.on('disconnect', () => {
     console.log(`[SOCKET] Client disconnected: ${socket.id} (${socket.data.playerId})`);
     const roomCode = socket.data.roomCode;

@@ -86,9 +86,13 @@ export function handleChopPointTransfer(
     message += ` (Lõi Thợ Săn Heo cướp thêm +1đ!)`;
   }
 
-  // Kiểm tra lõi Phòng thủ (Emergency Shield) của victim: Chặn 1 lần mất điểm
+  // Kiểm tra lõi Phòng thủ (Emergency Shield / Nano Barrier) của victim: Chặn 1 lần mất điểm
   const shieldIdx = victim.activeAugments.findIndex(
-    (a) => a.augment.id === 'AUG_SHIELD' || a.augment.name.toLowerCase().includes('khiên')
+    (a) =>
+      a.augment.id === 'AUG_SHIELD' ||
+      a.augment.id === 'AUG_CHOP_DEFENSE' ||
+      a.augment.name.toLowerCase().includes('khiên') ||
+      a.augment.name.toLowerCase().includes('barrier')
   );
   if (shieldIdx !== -1) {
     message += ` 🛡️ Khiên Bong Bóng của ${victim.name} đã hấp thụ toàn bộ điểm phạt!`;

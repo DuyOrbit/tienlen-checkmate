@@ -57,13 +57,57 @@ export const AUGMENTS_CATALOG: Augment[] = [
     icon: 'Sparkles',
     rarity: 'RARE',
   },
+  {
+    id: 'AUG_CLUTCH',
+    name: 'Last Stand (Lật Kèo)',
+    description: 'Nếu điểm tổng đang <= 4 điểm mà về Top 1 hoặc Top 2: nhận thêm +3 điểm thưởng! (1 round)',
+    durationRounds: 1,
+    icon: 'Rocket',
+    rarity: 'EPIC',
+  },
+  {
+    id: 'AUG_DOUBLE_TROUBLE',
+    name: 'Twin Turbo',
+    description: 'Mỗi khi về Top 1 hoặc Top 2: nhận thêm +1 điểm thưởng. Hiệu lực trong 2 round.',
+    durationRounds: 2,
+    icon: 'Activity',
+    rarity: 'RARE',
+  },
+  {
+    id: 'AUG_COMEBACK',
+    name: 'Phoenix Core',
+    description: 'Nếu về Top 3 hoặc Top 4 ở round này: nhận +2 điểm an ủi để tích lũy. Tự hủy sau 1 round.',
+    durationRounds: 1,
+    icon: 'HeartHandshake',
+    rarity: 'COMMON',
+  },
+  {
+    id: 'AUG_HIGH_ROLLER',
+    name: 'Neon Jackpot',
+    description: 'Nếu về Top 1: nhận thêm +3 điểm thưởng (tổng +7 điểm). Tự hủy sau 1 round.',
+    durationRounds: 1,
+    icon: 'Crown',
+    rarity: 'EPIC',
+  },
+  {
+    id: 'AUG_CHOP_DEFENSE',
+    name: 'Nano Barrier',
+    description: 'Chặn hoàn toàn 1 lần mất điểm do bị chặt heo hoặc thối heo. (2 round)',
+    durationRounds: 2,
+    icon: 'ShieldCheck',
+    rarity: 'RARE',
+  },
 ];
 
 /**
- * Lấy ngẫu nhiên 3 lõi không trùng nhau cho người chơi lựa chọn
+ * Lấy ngẫu nhiên các lõi không trùng nhau cho người chơi lựa chọn (có thể loại trừ các lõi cũ khi roll)
  */
-export function getRandomAugments(count: number = 3): Augment[] {
-  const shuffled = [...AUGMENTS_CATALOG].sort(() => Math.random() - 0.5);
+export function getRandomAugments(count: number = 3, excludeIds: string[] = []): Augment[] {
+  let pool = AUGMENTS_CATALOG.filter((a) => !excludeIds.includes(a.id));
+  if (pool.length < count) {
+    pool = [...AUGMENTS_CATALOG];
+  }
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
 }
 
@@ -118,6 +162,26 @@ export function evaluateAugmentBonuses(player: PlayerState, baseRankPoints: numb
     if (aug.id === 'AUG_PACIFIST' && player.choppedCount === 0 && player.beenChoppedCount === 0) {
       finalPoints += 1;
       bonusNotes.push('Zero Threat (+1đ hòa bình)');
+    }
+
+    if (aug.id === 'AUG_CLUTCH' && (player.rankInRound === 1 || player.rankInRound === 2) && player.totalPoints <= 4) {
+      finalPoints += 3;
+      bonusNotes.push('Last Stand Lật Kèo (+3đ)');
+    }
+
+    if (aug.id === 'AUG_DOUBLE_TROUBLE' && (player.rankInRound === 1 || player.rankInRound === 2)) {
+      finalPoints += 1;
+      bonusNotes.push('Twin Turbo (+1đ)');
+    }
+
+    if (aug.id === 'AUG_COMEBACK' && (player.rankInRound === 3 || player.rankInRound === 4)) {
+      finalPoints += 2;
+      bonusNotes.push('Phoenix Core Tái Sinh (+2đ)');
+    }
+
+    if (aug.id === 'AUG_HIGH_ROLLER' && player.rankInRound === 1) {
+      finalPoints += 3;
+      bonusNotes.push('Neon Jackpot (+3đ)');
     }
   }
 

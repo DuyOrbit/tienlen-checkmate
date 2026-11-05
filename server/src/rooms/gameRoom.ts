@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { Card, Combo, MatchState, PlayerState, TrickMove } from '../engine/types.js';
+import { Card, Combo, MatchState, PlayerState, TrickMove, Augment } from '../engine/types.js';
 import { createDeck, shuffleDeck, dealHands, sortCards } from '../engine/cardUtils.js';
 import { evaluateCombo, canBeat, checkToiTrang } from '../engine/evaluator.js';
 import { getRandomAugments } from '../engine/augments.js';
@@ -9,6 +9,7 @@ import { BotAI } from '../bot/botAI.js';
 export class GameRoom {
   public state: MatchState;
   public hostId: string = '';
+  public rerollCounts: Record<string, number> = {};
   public onRoomEmpty?: (roomCode: string) => void;
   private prisma: PrismaClient;
   private onStateChange: (state: MatchState) => void;
@@ -261,8 +262,10 @@ export class GameRoom {
 
     // 2. Chuyển sang giai đoạn Chọn Lõi (Augment Selection)
     this.state.phase = 'AUGMENT_SELECT';
+    this.rerollCounts = {};
     for (const p of this.state.players) {
       if (p.canPickAugment) {
+        this.rerollCounts[p.id] = 1;
         this.state.augmentChoices[p.id] = getRandomAugments(3);
       } else {
         this.state.log.push(`⚡ ${p.name} đã chạm mốc 12 điểm -> Đánh chay, không được chọn Lõi!`);
@@ -304,6 +307,31 @@ export class GameRoom {
     } else {
       this.broadcast();
     }
+  }
+
+  public rerollAugments(playerId: string): { success: boolean; message: string; choices?: Augment[] } {
+    if (this.state.phase !== 'AUGMENT_SELECT') {
+      return { success: false, message: 'Chưa phải lúc đổi Lõi!' };
+    }
+    const player = this.state.players.find((p) => p.id === playerId);
+    if (!player || !player.canPickAugment) {
+      return { success: false, message: 'Bạn không thể đổi Lõi!' };
+    }
+    const remaining = this.rerollCounts[playerId] ?? 0;
+    if (remaining <= 0) {
+      return { success: false, message: 'Bạn đã hết lượt đổi Lõi ở round này!' };
+    }
+
+    const currentChoices = this.state.augmentChoices[playerId] || [];
+    const excludeIds = currentChoices.map((a) => a.id);
+    const newChoices = getRandomAugments(3, excludeIds);
+
+    this.rerollCounts[playerId] = remaining - 1;
+    this.state.augmentChoices[playerId] = newChoices;
+    this.state.log.push(`🎲 ${player.name} đã dùng 1 lượt đổi Lõi!`);
+    this.broadcast();
+
+    return { success: true, message: 'Đổi Lõi thành công!', choices: newChoices };
   }
 
   private beginPlayingPhase() {
@@ -733,6 +761,11 @@ export class GameRoom {
       augmentChoices: {
         ...(this.state.augmentChoices && this.state.augmentChoices[forPlayerId]
           ? { [forPlayerId]: this.state.augmentChoices[forPlayerId] }
+          : {}),
+      },
+      rerollCounts: {
+        ...(this.rerollCounts[forPlayerId] !== undefined
+          ? { [forPlayerId]: this.rerollCounts[forPlayerId] }
           : {}),
       },
     };

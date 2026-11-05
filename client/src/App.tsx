@@ -396,6 +396,17 @@ export const App: React.FC = () => {
     socket.emit('select_augment', { augmentId });
   };
 
+  // Augment Reroll (Đổi Lõi)
+  const handleRerollAugments = () => {
+    if (!socket) return;
+    setActionError('');
+    socket.emit('reroll_augments', (res: any) => {
+      if (res && !res.success) {
+        setActionError(res.message);
+      }
+    });
+  };
+
   // Next round
   const handleNextRound = () => {
     if (!socket) return;
@@ -933,15 +944,16 @@ export const App: React.FC = () => {
   // -------------------------------------------------------------
   // VIEW 3: MAIN GAME ARENA (Bàn đấu bài)
   // -------------------------------------------------------------
-  // Xoay mảng người chơi để chính mình luôn ở ghế dưới cùng, 3 đối thủ xếp theo chiều kim đồng hồ
+  // Xoay mảng người chơi theo chiều ngược kim đồng hồ chuẩn Tiến Lên Miền Nam:
+  // Mình (Dưới) -> Người bên Phải (đi sau mình) -> Người đối diện (Top) -> Người bên Trái (đi trước mình)
   const myPlayerId = getPlayerId();
   const myIndex = gameState.players.findIndex((p) => p.id === myPlayerId);
   const activeMyIndex = myIndex !== -1 ? myIndex : 0;
   const numPlayers = gameState.players.length;
 
-  const leftOpponent = numPlayers > 1 ? gameState.players[(activeMyIndex + 1) % numPlayers] : gameState.players[0];
+  const rightOpponent = numPlayers > 1 ? gameState.players[(activeMyIndex + 1) % numPlayers] : gameState.players[0];
   const topOpponent = numPlayers > 2 ? gameState.players[(activeMyIndex + 2) % numPlayers] : gameState.players[0];
-  const rightOpponent = numPlayers > 3 ? gameState.players[(activeMyIndex + 3) % numPlayers] : gameState.players[0];
+  const leftOpponent = numPlayers > 3 ? gameState.players[(activeMyIndex + 3) % numPlayers] : gameState.players[0];
 
   return (
     <div className="min-h-screen bg-[#161c18] text-[#f1f5f9] flex flex-col justify-between select-none overflow-x-hidden">
@@ -1225,7 +1237,9 @@ export const App: React.FC = () => {
           <AugmentModal
             augments={gameState.augmentChoices[humanPlayer.id]}
             hand={humanPlayer.hand}
+            rerollCount={gameState.rerollCounts?.[humanPlayer.id] ?? 1}
             onSelect={handleAugmentSelect}
+            onReroll={handleRerollAugments}
           />
         )}
 
