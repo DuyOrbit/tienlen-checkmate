@@ -43,7 +43,15 @@ app.use(express.json());
 // Phục vụ frontend tĩnh trực tiếp từ thư mục public để đồng nhất server
 app.use(express.static(publicPath));
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: process.env.DATABASE_URL
+    ? {
+        db: {
+          url: process.env.DATABASE_URL,
+        },
+      }
+    : undefined,
+});
 const rooms: Map<string, GameRoom> = new Map();
 
 // Setup Socket.io - Cho phép cả WampServer (http://localhost), Port 3001 và Vite (5173)
@@ -226,7 +234,10 @@ async function bootstrap() {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost') && !process.env.DATABASE_URL.includes('127.0.0.1')) {
     try {
       console.log('[PRISMA AUTO PUSH] Đang tự động kiểm tra và đồng bộ bảng vào Cloud Database...');
-      execSync('npx prisma db push --skip-generate', { stdio: 'inherit' });
+      execSync('npx prisma db push --skip-generate', {
+        stdio: 'inherit',
+        env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
+      });
       console.log('[PRISMA AUTO PUSH] Đồng bộ bảng thành công!');
     } catch (pushErr: any) {
       console.warn('[PRISMA AUTO PUSH NOTE]', pushErr.message);
