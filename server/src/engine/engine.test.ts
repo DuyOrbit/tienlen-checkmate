@@ -1,7 +1,7 @@
 import { createDeck, dealHands, sortCards } from './cardUtils.js';
 import { evaluateCombo, canBeat, checkToiTrang } from './evaluator.js';
 import { handleChopPointTransfer, finalizeRoundScores } from './scoring.js';
-import { PlayerState } from './types.js';
+import { PlayerState, Card } from './types.js';
 import { AUGMENTS_CATALOG } from './augments.js';
 import { GameRoom } from '../rooms/gameRoom.js';
 
@@ -191,7 +191,13 @@ function runTests() {
   // Đánh 3 bích -> Thành công
   const legalMove = room3Bich.playCards('user-A', ['3-spades']);
   console.assert(legalMove.success === true, 'Nước đi mở màn round 1 có 3 bích phải thành công');
-  console.log('✔ Test 13: Nước đi đầu tiên Round 1 bắt buộc có 3 Bích: PASSED');
+
+  // Vòng tiếp theo trong cùng Round 1: lastValidMove = null nhưng KHÔNG được chặn nữa
+  room3Bich.state.lastValidMove = null;
+  room3Bich.state.currentTurnPlayerId = 'user-A';
+  const nextTrickMove = room3Bich.playCards('user-A', ['4-spades']);
+  console.assert(nextTrickMove.success === true, 'Vòng mới sau nước mở màn không được đòi 3 bích nữa');
+  console.log('✔ Test 13: Nước đi đầu tiên Round 1 bắt buộc có 3 Bích và các vòng sau không bị kẹt: PASSED');
 
   console.log('🎉 TOÀN BỘ 13 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }

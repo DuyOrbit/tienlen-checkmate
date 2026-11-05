@@ -11,6 +11,7 @@ export class GameRoom {
   public hostId: string = '';
   public rerollCounts: Record<string, number> = {};
   public rerolledSlots: Record<string, boolean[]> = {};
+  public isFirstMoveOfRound1Completed: boolean = false;
   public onRoomEmpty?: (roomCode: string) => void;
   private prisma: PrismaClient;
   private onStateChange: (state: MatchState) => void;
@@ -218,6 +219,7 @@ export class GameRoom {
     this.state.finishOrder = [];
     this.state.pointEvents = [];
     this.state.augmentChoices = {};
+    this.isFirstMoveOfRound1Completed = false;
 
     // Reset round-specific player properties
     for (const p of this.state.players) {
@@ -424,7 +426,7 @@ export class GameRoom {
 
     // Kiểm tra luật mở màn Round 1: Nước đi đầu tiên bắt buộc phải chứa lá 3 Bích (3-spades)
     const isFirstMoveOfRound1 =
-      this.state.roundNumber === 1 && !this.state.lastValidMove && this.state.finishOrder.length === 0;
+      this.state.roundNumber === 1 && !this.isFirstMoveOfRound1Completed;
     if (isFirstMoveOfRound1 && !cardIds.includes('3-spades')) {
       return { success: false, message: 'Nước đi đầu tiên của ván 1 bắt buộc phải chứa lá 3 Bích (3♠)!' };
     }
@@ -449,6 +451,7 @@ export class GameRoom {
 
     // Đánh bài thành công: Rút khỏi tay người chơi
     player.hand = player.hand.filter((c) => !cardIds.includes(c.id));
+    this.isFirstMoveOfRound1Completed = true;
     this.state.lastValidMove = {
       playerId: player.id,
       playerName: player.name,
@@ -557,12 +560,24 @@ export class GameRoom {
       this.botTimeout = null;
       if (this.state.phase !== 'PLAYING' || this.state.currentTurnPlayerId !== currentP.id) return;
       const isFirstMoveOfRound1 =
-        this.state.roundNumber === 1 && !this.state.lastValidMove && this.state.finishOrder.length === 0;
+        this.state.roundNumber === 1 && !this.isFirstMoveOfRound1Completed;
       const lastCombo = this.state.lastValidMove ? this.state.lastValidMove.combo : null;
       const chosenCards = BotAI.makeMove(currentP.hand, lastCombo, isFirstMoveOfRound1);
 
       if (chosenCards && chosenCards.length > 0) {
-        this.playCards(currentP.id, chosenCards.map((c) => c.id));
+        const res = this.playCards(currentP.id, chosenCards.map((c) => c.id));
+        if (!res.success) {
+          console.error(`[BOT AI ERROR] Bot ${currentP.name} playCards failed: ${res.message}`);
+          // Fallback an toàn: nếu đang cầm vòng, thử đánh lá bài đơn nhỏ nhất
+          if (!this.state.lastValidMove && currentP.hand.length > 0) {
+            const fallbackRes = this.playCards(currentP.id, [currentP.hand[0].id]);
+            if (!fallbackRes.success) {
+              this.passTurn(currentP.id);
+            }
+          } else {
+            this.passTurn(currentP.id);
+          }
+        }
       } else {
         this.passTurn(currentP.id);
       }
