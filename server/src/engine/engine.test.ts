@@ -249,6 +249,36 @@ function runTests() {
   }
   console.log('✔ Test 15: Cả 4 người >= 12 điểm tự động chuyển sang PLAYING: PASSED');
 
+  // Test 16 (B3): Đã chọn Lõi rồi thì không được reroll để chọn thêm Lõi thứ 2
+  const roomB3 = new GameRoom('TEST-B3', null as any, () => {});
+  roomB3.initCustomRoom('h1', 'Player H1');
+  roomB3.addPlayer('p2', 'Player P2');
+  roomB3.addPlayer('p3', 'Player P3');
+  roomB3.addPlayer('p4', 'Player P4');
+  roomB3.startNewRound(); // Pha AUGMENT_SELECT
+
+  const h1Choices = roomB3.state.augmentChoices['h1'];
+  if (!h1Choices || h1Choices.length === 0) {
+    throw new Error('FAIL B3: Thiếu choices của h1');
+  }
+  // h1 chọn Lõi lần đầu
+  roomB3.selectAugment('h1', h1Choices[0].id);
+  const p1 = roomB3.state.players.find((p) => p.id === 'h1')!;
+  console.assert(p1.activeAugments.length === 1, 'h1 phải có 1 Lõi');
+
+  // Thử reroll sau khi đã chọn Lõi
+  const rerollResB3 = roomB3.rerollAugments('h1');
+  if (rerollResB3.success) {
+    // Nếu reroll thành công thì thử chọn thêm lần 2
+    if (roomB3.state.augmentChoices['h1']?.length) {
+      roomB3.selectAugment('h1', roomB3.state.augmentChoices['h1'][0].id);
+    }
+  }
+  if (p1.activeAugments.length > 1) {
+    throw new Error(`FAIL B3: Đã chọn Lõi rồi vẫn reroll chọn thêm được ${p1.activeAugments.length} Lõi!`);
+  }
+  console.log('✔ Test 16: Không được reroll chọn thêm Lõi sau khi đã chọn: PASSED');
+
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 

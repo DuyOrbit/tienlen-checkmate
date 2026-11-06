@@ -377,20 +377,7 @@ io.on('connection', (socket) => {
     if (callback) callback({ success: true, message: 'Bắt đầu ván mới thành công!' });
   });
 
-  // 11. Đổi Lõi (Reroll Augments)
-  socket.on('reroll_augments', (callback?: ActionCallback) => {
-    const roomCode = socket.data.roomCode;
-    const playerId = socket.data.playerId;
-    const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (!room) {
-      if (callback) callback({ success: false, message: 'Không tìm thấy phòng!' });
-      return;
-    }
-    const result = room.rerollAugments(playerId);
-    if (callback) callback(result);
-  });
-
-  // 11b. Đổi riêng 1 Lõi (Reroll Augment Slot)
+  // 11. Đổi riêng 1 Lõi (Reroll Augment Slot)
   socket.on('reroll_augment_slot', (data: { slotIndex: number }, callback?: ActionCallback) => {
     const roomCode = socket.data.roomCode;
     const playerId = socket.data.playerId;

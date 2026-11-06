@@ -332,12 +332,15 @@ export class GameRoom {
     if (!player || !player.canPickAugment) {
       return { success: false, message: 'Bạn không thể đổi Lõi!' };
     }
+    const currentChoices = this.state.augmentChoices[playerId];
+    if (!currentChoices || currentChoices.length === 0) {
+      return { success: false, message: 'Bạn đã chọn Lõi rồi hoặc không có danh sách Lõi để đổi!' };
+    }
     const remaining = this.rerollCounts[playerId] ?? 0;
     if (remaining <= 0) {
       return { success: false, message: 'Bạn đã hết lượt đổi Lõi ở round này!' };
     }
 
-    const currentChoices = this.state.augmentChoices[playerId] || [];
     const excludeIds = currentChoices.map((a) => a.id);
     const newChoices = getRandomAugments(3, excludeIds);
 
@@ -360,7 +363,11 @@ export class GameRoom {
     if (!player || !player.canPickAugment) {
       return { success: false, message: 'Bạn không thể đổi Lõi!' };
     }
-    if (slotIndex < 0 || slotIndex > 2) {
+    const currentChoices = this.state.augmentChoices[playerId];
+    if (!currentChoices || currentChoices.length === 0) {
+      return { success: false, message: 'Bạn đã chọn Lõi rồi hoặc không có danh sách Lõi để đổi!' };
+    }
+    if (slotIndex < 0 || slotIndex >= currentChoices.length) {
       return { success: false, message: 'Vị trí Lõi không hợp lệ (0-2)!' };
     }
 
@@ -369,11 +376,6 @@ export class GameRoom {
     }
     if (this.rerolledSlots[playerId][slotIndex]) {
       return { success: false, message: 'Lõi ở vị trí này đã được đổi 1 lần rồi!' };
-    }
-
-    const currentChoices = this.state.augmentChoices[playerId];
-    if (!currentChoices || currentChoices.length <= slotIndex) {
-      return { success: false, message: 'Không tìm thấy danh sách Lõi!' };
     }
 
     const excludeIds = currentChoices.map((a) => a.id);
