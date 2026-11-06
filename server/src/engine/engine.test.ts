@@ -279,6 +279,61 @@ function runTests() {
   }
   console.log('✔ Test 16: Không được reroll chọn thêm Lõi sau khi đã chọn: PASSED');
 
+  // Test 17 (B4): Vòng đánh không được kết thúc sớm khi người về đích thắng trick
+  const roomB4 = new GameRoom('TEST-B4', null as any, () => {});
+  roomB4.initCustomRoom('p0', 'Player 0');
+  roomB4.addPlayer('p1', 'Player 1');
+  roomB4.addPlayer('p2', 'Player 2');
+  roomB4.addPlayer('p3', 'Player 3');
+  roomB4.state.phase = 'PLAYING';
+  roomB4.state.roundNumber = 2; // Không phải round 1 để không ép 3 bích
+  roomB4.isFirstMoveOfRound1Completed = true;
+
+  // Thiết lập bài cho 4 người:
+  const card5s = { id: '5-spades', rank: '5', suit: 'spades', rankValue: 5, suitValue: 1, weight: 51 } as Card;
+  const cardKs = { id: 'K-spades', rank: 'K', suit: 'spades', rankValue: 13, suitValue: 1, weight: 131 } as Card;
+  const card7c = { id: '7-clubs', rank: '7', suit: 'clubs', rankValue: 7, suitValue: 2, weight: 72 } as Card;
+  const cardAc = { id: 'A-clubs', rank: 'A', suit: 'clubs', rankValue: 14, suitValue: 2, weight: 142 } as Card;
+  const cardDummy = { id: '4-hearts', rank: '4', suit: 'hearts', rankValue: 4, suitValue: 4, weight: 44 } as Card;
+
+  const [pl0, pl1, pl2, pl3] = roomB4.state.players;
+  pl0.hand = [card5s, cardKs];
+  pl1.hand = [cardDummy];
+  pl2.hand = [cardDummy];
+  pl3.hand = [card7c, cardAc];
+
+  // p0 mở vòng bằng 5 Bích
+  roomB4.state.currentTurnPlayerId = 'p0';
+  roomB4.playCards('p0', ['5-spades']);
+
+  // p1 pass, p2 pass
+  roomB4.passTurn('p1');
+  roomB4.passTurn('p2');
+
+  // p3 đánh 7 Chuồn
+  roomB4.playCards('p3', ['7-clubs']);
+
+  // p0 đánh K Bích và HẾT BÀI
+  roomB4.playCards('p0', ['K-spades']);
+
+  // Mong đợi: p0 đã hết bài nhưng p3 chưa pass, nên lastValidMove vẫn là K Bích và lượt thuộc p3
+  if (!roomB4.state.lastValidMove) {
+    throw new Error('FAIL B4: Vòng đánh bị kết thúc sớm khi p0 hết bài! lastValidMove bị null!');
+  }
+  if (roomB4.state.currentTurnPlayerId !== 'p3') {
+    throw new Error(`FAIL B4: Lượt phải thuộc về p3 nhưng lại thuộc về ${roomB4.state.currentTurnPlayerId}!`);
+  }
+
+  // p3 pass -> Lúc này không còn ai chưa pass -> Vòng kết thúc và người kế tiếp sau p0 (là p1) cầm vòng mới
+  roomB4.passTurn('p3');
+  if (roomB4.state.lastValidMove !== null) {
+    throw new Error('FAIL B4: Sau khi p3 pass, lastValidMove phải là null cho vòng mới!');
+  }
+  if (roomB4.state.currentTurnPlayerId !== 'p1') {
+    throw new Error(`FAIL B4: Người kế tiếp sau p0 (là p1) phải cầm vòng mới, nhưng lại là ${roomB4.state.currentTurnPlayerId}!`);
+  }
+  console.log('✔ Test 17: Vòng đánh không kết thúc sớm khi người về đích thắng trick: PASSED');
+
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 

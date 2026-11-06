@@ -517,10 +517,22 @@ export class GameRoom {
     const activePlayers = this.state.players.filter((p) => p.hand.length > 0);
     const nonPassedActive = activePlayers.filter((p) => !p.hasPassed);
 
-    // Nếu tất cả người khác đã pass (chỉ còn lại người đánh nước cuối cùng)
-    if (nonPassedActive.length <= 1) {
+    const lastMovePlayer = this.state.lastValidMove
+      ? this.state.players.find((p) => p.id === this.state.lastValidMove!.playerId)
+      : null;
+    const isLastMovePlayerFinished = Boolean(lastMovePlayer && lastMovePlayer.hand.length === 0);
+
+    // Điều kiện kết thúc vòng đánh:
+    // 1. Nếu người đánh nước cuối ĐÃ HẾT BÀI: vòng CHỈ kết thúc khi TẤT CẢ người còn bài đều đã pass (nonPassedActive.length === 0).
+    // 2. Nếu người đánh nước cuối CÒN BÀI: vòng kết thúc khi tất cả người khác đã pass (nonPassedActive.length <= 1).
+    const isTrickEnded = isLastMovePlayerFinished
+      ? nonPassedActive.length === 0
+      : nonPassedActive.length <= 1;
+
+    // Nếu vòng đánh kết thúc
+    if (isTrickEnded) {
       // Vòng mới! Xóa bài trên bàn, reset hasPassed
-      let trickWinner = nonPassedActive.length === 1 ? nonPassedActive[0] : null;
+      let trickWinner = isLastMovePlayerFinished ? null : (nonPassedActive.length === 1 ? nonPassedActive[0] : null);
       if (!trickWinner) {
         // Người đánh nước cuối cùng đã hết bài và tất cả người khác đều đã pass
         // Nhường quyền mở vòng mới cho người kế tiếp còn bài theo chiều kim đồng hồ
@@ -544,7 +556,7 @@ export class GameRoom {
       return;
     }
 
-    // Chuyển lượt sang người tiếp theo theo chiều kim đồng hồ
+    // Chuyển lượt sang người tiếp theo theo chiều kim đồng hồ (còn bài và chưa pass)
     const currentIndex = this.state.players.findIndex((p) => p.id === this.state.currentTurnPlayerId);
     let nextIndex = (currentIndex + 1) % 4;
 
