@@ -4,6 +4,7 @@ import { handleChopPointTransfer, finalizeRoundScores, handleThoiPenalties } fro
 import { PlayerState, Card } from './types.js';
 import { AUGMENTS_CATALOG, getRandomAugments } from './augments.js';
 import { GameRoom } from '../rooms/gameRoom.js';
+import { generateLegalMoves } from '../bot/botAI.js';
 
 async function runTests() {
   console.log('=== TIẾN LÊN CHECKMATE ENGINE TEST SUITE ===');
@@ -244,7 +245,7 @@ async function runTests() {
   roomB2.state.phase = 'ROUND_END';
   roomB2.startNewRound();
 
-  if (roomB2.state.phase !== 'PLAYING') {
+  if ((roomB2.state.phase as string) !== 'PLAYING') {
     throw new Error(`FAIL B2: Cả 4 người >= 12đ nhưng phase là ${roomB2.state.phase}, không tự chuyển sang PLAYING!`);
   }
   if (!roomB2.state.currentTurnPlayerId) {
@@ -332,7 +333,7 @@ async function runTests() {
   if (roomB4.state.lastValidMove !== null) {
     throw new Error('FAIL B4: Sau khi p3 pass, lastValidMove phải là null cho vòng mới!');
   }
-  if (roomB4.state.currentTurnPlayerId !== 'p1') {
+  if ((roomB4.state.currentTurnPlayerId as string) !== 'p1') {
     throw new Error(`FAIL B4: Người kế tiếp sau p0 (là p1) phải cầm vòng mới, nhưng lại là ${roomB4.state.currentTurnPlayerId}!`);
   }
   console.log('✔ Test 17: Vòng đánh không kết thúc sớm khi người về đích thắng trick: PASSED');
@@ -436,6 +437,49 @@ async function runTests() {
     throw new Error('FAIL B7: Phòng MATCH_OVER không được dọn dẹp khi người chơi ngắt kết nối hết 30s!');
   }
   console.log('✔ Test 20: Dọn dẹp phòng MATCH_OVER sau khi người chơi disconnect: PASSED');
+
+  // Test 21 (C3): Kiểm tra khả năng Bot đỡ đòn (Sám cô, Sảnh có đôi xen kẽ, 3 đôi thông chặt heo, 4 đôi thông)
+  const c4c = deck.find((c) => c.rank === '4' && c.suit === 'clubs')!;
+  const c4d = deck.find((c) => c.rank === '4' && c.suit === 'diamonds')!;
+  const c5c = deck.find((c) => c.rank === '5' && c.suit === 'clubs')!;
+  const c5d = deck.find((c) => c.rank === '5' && c.suit === 'diamonds')!;
+  const c6s = deck.find((c) => c.rank === '6' && c.suit === 'spades')!;
+  const c6c = deck.find((c) => c.rank === '6' && c.suit === 'clubs')!;
+  const c7s = deck.find((c) => c.rank === '7' && c.suit === 'spades')!;
+  const c7c = deck.find((c) => c.rank === '7' && c.suit === 'clubs')!;
+
+  // 1. Sám cô: Target là sám 3, Bot có sám 4
+  const targetTriple = evaluateCombo([c3s, c3c, c3d]);
+  const handWithTriple = [c4s, c4c, c4d, c5s];
+  const tripleMoves = generateLegalMoves(handWithTriple, targetTriple);
+  if (tripleMoves.length === 0 || tripleMoves[0].length !== 3) {
+    throw new Error('FAIL C3: Bot không tìm được nước đỡ Sám cô (Triple)!');
+  }
+
+  // 2. Sảnh có đôi xen kẽ: Target là sảnh 3-4-5, Hand có [3, 4, 4, 5, 6] (2 lá 4 xen kẽ)
+  const targetStraight = evaluateCombo([c3s, c4s, c5s]);
+  const handWithDupInStraight = [c3c, c4c, c4d, c5c, c6s];
+  const straightMoves = generateLegalMoves(handWithDupInStraight, targetStraight);
+  if (straightMoves.length === 0 || straightMoves[0].length !== 3) {
+    throw new Error('FAIL C3: Bot không tìm được Sảnh khi bài có lá đôi xen kẽ!');
+  }
+
+  // 3. 3 đôi thông chặt Heo: Target là Heo đỏ 2 cơ, Hand có đôi 4, đôi 5, đôi 6
+  const targetHeo = evaluateCombo([c2h]);
+  const handWith3PairsSeq = [c4s, c4c, c5s, c5c, c6s, c6c];
+  const chopMoves = generateLegalMoves(handWith3PairsSeq, targetHeo);
+  if (chopMoves.length === 0 || chopMoves[0].length !== 6) {
+    throw new Error('FAIL C3: Bot không xếp được 3 đôi thông để chặt heo!');
+  }
+
+  // 4. 4 đôi thông chặt Tứ quý: Target là Tứ quý 3, Hand có đôi 4, đôi 5, đôi 6, đôi 7
+  const quad3 = evaluateCombo([c3s, c3c, c3d, deck.find((c) => c.rank === '3' && c.suit === 'hearts')!]);
+  const handWith4PairsSeq = [c4s, c4c, c5s, c5c, c6s, c6c, c7s, c7c];
+  const quadChopMoves = generateLegalMoves(handWith4PairsSeq, quad3);
+  if (quadChopMoves.length === 0 || quadChopMoves[0].length !== 8) {
+    throw new Error('FAIL C3: Bot không xếp được 4 đôi thông để chặt Tứ quý!');
+  }
+  console.log('✔ Test 21: Bot tìm nước đỡ Sám cô, Sảnh có đôi xen kẽ, 3 đôi thông và 4 đôi thông: PASSED');
 
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
