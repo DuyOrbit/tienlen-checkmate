@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Role } from '@prisma/client';
+import { getJwtSecret } from './jwtSecret.js';
+import { prisma } from '../db/prismaClient.js';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -18,13 +20,36 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  const secret = process.env.JWT_SECRET || 'tienlen_cyberpunk_super_secret_key_2026';
-  jwt.verify(token, secret, (err: any, decoded: any) => {
-    if (err) {
+  const secret = getJwtSecret();
+  jwt.verify(token, secret, async (err: any, decoded: any) => {
+    if (err || !decoded || !decoded.id) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    req.user = decoded;
-    next();
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, username: true, role: true, isBanned: true },
+      });
+
+      if (!user) {
+        return res.status(403).json({ error: 'Tài khoản không tồn tại' });
+      }
+
+      if (user.isBanned) {
+        return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa bởi Quản trị viên' });
+      }
+
+      req.user = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      };
+      next();
+    } catch (dbErr: any) {
+      console.error('[AUTH ERROR] Lỗi tra cứu tài khoản trong DB:', dbErr.message);
+      return res.status(500).json({ error: 'Lỗi xác thực hệ thống, vui lòng thử lại sau' });
+    }
   });
 }
 

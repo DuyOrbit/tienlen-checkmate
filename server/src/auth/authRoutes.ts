@@ -3,10 +3,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient, Role } from '@prisma/client';
 import { AuthRequest, authenticateToken } from './authMiddleware.js';
+import { getJwtSecret } from './jwtSecret.js';
 
 export function createAuthRouter(prisma: PrismaClient) {
   const router = Router();
-  const jwtSecret = process.env.JWT_SECRET || 'tienlen_cyberpunk_super_secret_key_2026';
+  const jwtSecret = getJwtSecret();
 
   // REGISTER
   router.post('/register', async (req, res) => {

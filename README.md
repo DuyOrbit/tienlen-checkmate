@@ -124,6 +124,13 @@ npm run dev
 Mở trình duyệt truy cập ngay:
 👉 **`http://localhost:3001`** hoặc **`http://localhost/tienlen`**
 
+### 4. Cấu hình Biến Môi Trường (Deploy Production / Render)
+Khi triển khai trên Render hoặc môi trường Production, bạn cần cấu hình các biến môi trường sau trong mục **Environment Variables**:
+- `NODE_ENV`: `production`
+- `DATABASE_URL`: Chuỗi kết nối MySQL (ví dụ TiDB Cloud, Aiven MySQL, AWS RDS...).
+- `JWT_SECRET`: Chuỗi khóa bí mật ngẫu nhiên an toàn (bắt buộc ở production, thiếu biến này server sẽ dừng khởi động để bảo vệ an toàn hệ thống).
+- `ADMIN_PASSWORD`: Mật khẩu bảo mật cho tài khoản Quản trị viên `admin` khi hệ thống seed dữ liệu (nếu không thiết lập, server sẽ không tự tạo tài khoản admin).
+
 ---
 
 ## 🧪 CHẠY BỘ KIỂM THỬ (TEST SUITES)

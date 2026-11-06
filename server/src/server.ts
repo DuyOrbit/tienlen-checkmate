@@ -7,7 +7,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './db/prismaClient.js';
+import { getJwtSecret } from './auth/jwtSecret.js';
 import { ensureDatabaseExists, seedDefaultAdmin } from './db/initDb.js';
 import { createAuthRouter } from './auth/authRoutes.js';
 import { createAdminRouter } from './admin/adminRoutes.js';
@@ -44,15 +45,6 @@ app.use(express.json());
 // Phục vụ frontend tĩnh trực tiếp từ thư mục public để đồng nhất server
 app.use(express.static(publicPath));
 
-const prisma = new PrismaClient({
-  datasources: process.env.DATABASE_URL
-    ? {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      }
-    : undefined,
-});
 const rooms: Map<string, GameRoom> = new Map();
 
 // Setup Socket.io - Cho phép cả WampServer (http://localhost), Port 3001 và Vite (5173)
@@ -60,6 +52,7 @@ interface SocketData {
   playerId: string;
   playerName: string;
   isGuest: boolean;
+  guestToken?: string;
   roomCode?: string;
 }
 
@@ -70,34 +63,66 @@ const io = new SocketIOServer<any, any, any, SocketData>(server, {
   },
 });
 
-const jwtSecret = process.env.JWT_SECRET || 'tienlen_cyberpunk_super_secret_key_2026';
+const jwtSecret = getJwtSecret();
 
-// Middleware xác thực danh tính Socket qua handshake JWT hoặc cấp guestId an toàn từ server
-io.use((socket, next) => {
+// Middleware xác thực danh tính Socket qua handshake JWT hoặc cấp guestId có ký an toàn từ server
+io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (token && typeof token === 'string') {
-    jwt.verify(token, jwtSecret, (err: any, decoded: any) => {
-      if (!err && decoded && decoded.id) {
-        socket.data.playerId = decoded.id;
-        socket.data.playerName = decoded.username || 'Người chơi';
-        socket.data.isGuest = false;
+    try {
+      const decoded: any = jwt.verify(token, jwtSecret);
+      if (decoded && decoded.id) {
+        // Tra DB kiểm tra tài khoản bị khóa và lấy role/username thật
+        try {
+          const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            select: { id: true, username: true, role: true, isBanned: true },
+          });
+
+          if (user) {
+            if (user.isBanned) {
+              return next(new Error('Tài khoản đã bị khóa bởi Quản trị viên'));
+            }
+            socket.data.playerId = user.id;
+            socket.data.playerName = user.username;
+            socket.data.isGuest = false;
+            return next();
+          }
+        } catch (dbErr: any) {
+          console.error('[SOCKET AUTH ERROR] Không thể kết nối DB tra cứu user:', dbErr.message);
+          return next(new Error('Lỗi máy chủ xác thực tài khoản'));
+        }
+      }
+    } catch {
+      // Token sai hoặc hết hạn -> xử lý xuống phần guest
+    }
+  }
+
+  // Khách (Guest): Kiểm tra guestToken có ký hợp lệ do server cấp trước đó
+  const incomingGuestToken = socket.handshake.auth?.guestToken;
+  if (incomingGuestToken && typeof incomingGuestToken === 'string') {
+    try {
+      const guestDecoded: any = jwt.verify(incomingGuestToken, jwtSecret);
+      if (guestDecoded && guestDecoded.guestId && typeof guestDecoded.guestId === 'string' && guestDecoded.guestId.startsWith('guest-')) {
+        socket.data.playerId = guestDecoded.guestId;
+        socket.data.guestToken = incomingGuestToken;
+        socket.data.playerName = 'Khách';
+        socket.data.isGuest = true;
         return next();
       }
-      // Token không hợp lệ hoặc hết hạn -> cấp guestId mới từ server
-      const guestId = `guest-${Math.random().toString(36).substring(2, 9)}`;
-      socket.data.playerId = guestId;
-      socket.data.playerName = 'Khách';
-      socket.data.isGuest = true;
-      next();
-    });
-  } else {
-    // Không có token -> cấp guestId mới từ server
-    const guestId = `guest-${Math.random().toString(36).substring(2, 9)}`;
-    socket.data.playerId = guestId;
-    socket.data.playerName = 'Khách';
-    socket.data.isGuest = true;
-    next();
+    } catch {
+      // guestToken hết hạn hoặc giả mạo -> cấp mới bên dưới
+    }
   }
+
+  // Cấp guestId và guestToken có ký mới từ server (hạn 8 giờ)
+  const guestId = `guest-${Math.random().toString(36).substring(2, 9)}`;
+  const newGuestToken = jwt.sign({ guestId, isGuest: true }, jwtSecret, { expiresIn: '8h' });
+  socket.data.playerId = guestId;
+  socket.data.guestToken = newGuestToken;
+  socket.data.playerName = 'Khách';
+  socket.data.isGuest = true;
+  next();
 });
 
 // REST Routes
@@ -134,6 +159,7 @@ io.on('connection', (socket) => {
     playerId: socket.data.playerId,
     playerName: socket.data.playerName,
     isGuest: socket.data.isGuest,
+    guestToken: socket.data.guestToken,
   });
 
   // Kiểm tra Reconnection: Nếu người chơi đã có ghế trong một phòng đang hoạt động
@@ -432,7 +458,6 @@ async function bootstrap() {
   server.listen(port, () => {
     console.log(`🚀 Server đồng nhất đang chạy tại: http://localhost:${port}`);
     console.log(`🎮 Web & Socket.io sẵn sàng phục vụ tại cùng một cổng ${port}`);
-    console.log(`🔑 Tài khoản Admin mặc định: admin / admin123`);
   });
 }
 

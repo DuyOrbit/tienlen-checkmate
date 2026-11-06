@@ -50,58 +50,66 @@ export async function ensureDatabaseExists() {
 
 export async function seedDefaultAdmin(prisma: PrismaClient) {
   try {
-    const adminExists = await prisma.user.findUnique({
-      where: { username: 'admin' },
-    });
+    const adminPassword = process.env.ADMIN_PASSWORD;
 
-    if (!adminExists) {
-      console.log(`[SEED] Creating default admin account (username: admin)...`);
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('admin123', salt);
+    if (!adminPassword) {
+      console.warn('[SEED WARNING] Biến môi trường ADMIN_PASSWORD chưa được thiết lập. Bỏ qua việc tạo tài khoản Admin.');
+    } else {
+      const adminExists = await prisma.user.findUnique({
+        where: { username: 'admin' },
+      });
 
-      const admin = await prisma.user.create({
-        data: {
-          username: 'admin',
-          email: 'admin@tienlen.local',
-          passwordHash,
-          role: Role.ADMIN,
-          stats: {
-            create: {
-              matchesPlayed: 0,
-              checkmateWins: 0,
-              totalPoints: 0,
+      if (!adminExists) {
+        console.log(`[SEED] Đang khởi tạo tài khoản Admin từ biến môi trường ADMIN_PASSWORD...`);
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(adminPassword, salt);
+
+        await prisma.user.create({
+          data: {
+            username: 'admin',
+            email: 'admin@tienlen.local',
+            passwordHash,
+            role: Role.ADMIN,
+            stats: {
+              create: {
+                matchesPlayed: 0,
+                checkmateWins: 0,
+                totalPoints: 0,
+              },
             },
           },
-        },
-      });
-      console.log(`[SEED] Admin created successfully: ID = ${admin.id}, username = admin (password: admin123)`);
-    } else {
-      console.log(`[SEED] Admin account already exists.`);
+        });
+        console.log(`[SEED] Khởi tạo tài khoản Admin thành công.`);
+      } else {
+        console.log(`[SEED] Tài khoản Admin đã tồn tại.`);
+      }
     }
 
-    // Seed test player1 if not exists
-    const playerExists = await prisma.user.findUnique({
-      where: { username: 'player1' },
-    });
-    if (!playerExists) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('player123', salt);
-      await prisma.user.create({
-        data: {
-          username: 'player1',
-          email: 'player1@tienlen.local',
-          passwordHash,
-          role: Role.USER,
-          stats: {
-            create: {
-              matchesPlayed: 0,
-              checkmateWins: 0,
-              totalPoints: 0,
+    // Chỉ seed test player1 khi không phải production
+    if (process.env.NODE_ENV !== 'production') {
+      const playerExists = await prisma.user.findUnique({
+        where: { username: 'player1' },
+      });
+      if (!playerExists) {
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash('player123', salt);
+        await prisma.user.create({
+          data: {
+            username: 'player1',
+            email: 'player1@tienlen.local',
+            passwordHash,
+            role: Role.USER,
+            stats: {
+              create: {
+                matchesPlayed: 0,
+                checkmateWins: 0,
+                totalPoints: 0,
+              },
             },
           },
-        },
-      });
-      console.log(`[SEED] Test player created: username = player1 (password: player123)`);
+        });
+        console.log(`[SEED] Đã tạo tài khoản test player1 cho môi trường dev.`);
+      }
     }
   } catch (err: any) {
     console.error(`[SEED ERROR] Failed to seed admin/test users:`, err.message);
