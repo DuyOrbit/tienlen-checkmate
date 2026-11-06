@@ -162,8 +162,9 @@ io.on('connection', (socket) => {
     guestToken: socket.data.guestToken,
   });
 
-  // Kiểm tra Reconnection: Nếu người chơi đã có ghế trong một phòng đang hoạt động
+  // Kiểm tra Reconnection: Nếu người chơi đã có ghế trong một phòng đang hoạt động (bỏ qua phòng đã MATCH_OVER)
   for (const [code, r] of rooms) {
+    if (r.state.phase === 'MATCH_OVER') continue;
     const existingP = r.state.players.find((p) => p.id === socket.data.playerId);
     if (existingP) {
       socket.join(code);

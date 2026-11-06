@@ -419,6 +419,24 @@ async function runTests() {
   }
   console.log(`✔ Test 19: Phát ngay MATCH_OVER không chờ DB (${broadcastDelay}ms): PASSED`);
 
+  // Test 20 (B7): Phòng MATCH_OVER phải được dọn dẹp khi người chơi ngắt kết nối hết thời gian chờ
+  let roomB7Cleaned = false;
+  const roomB7 = new GameRoom('TEST-B7', null as any, () => {});
+  roomB7.initVsBots('h1', 'Player H1');
+  roomB7.state.phase = 'MATCH_OVER';
+  roomB7.onRoomEmpty = () => {
+    roomB7Cleaned = true;
+  };
+
+  roomB7.handlePlayerDisconnect('h1');
+  // Kích hoạt timeout 30s khi ngắt kết nối
+  roomB7.onPlayerDisconnectTimeout('h1');
+
+  if (!roomB7Cleaned) {
+    throw new Error('FAIL B7: Phòng MATCH_OVER không được dọn dẹp khi người chơi ngắt kết nối hết 30s!');
+  }
+  console.log('✔ Test 20: Dọn dẹp phòng MATCH_OVER sau khi người chơi disconnect: PASSED');
+
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 

@@ -713,42 +713,50 @@ export class GameRoom {
     }
 
     const timer = setTimeout(() => {
-      this.reconnectTimers.delete(playerId);
-      // Hết 30s mà chưa vào lại -> Bot tiếp quản ghế để ván không bị kẹt
-      if (this.state.phase !== 'MATCH_OVER') {
-        player.isBot = true;
-        player.name = `${player.name} (Bot)`;
-        this.state.log.push(`🤖 Hết thời gian chờ, Bot đã tiếp quản ghế của ${player.name}!`);
-
-        // Nếu người rời là chủ phòng, chuyển quyền chủ phòng cho người thật kế tiếp
-        if (this.hostId === playerId) {
-          const nextHuman = this.state.players.find((pl) => !pl.isBot && pl.id !== playerId);
-          if (nextHuman) {
-            this.hostId = nextHuman.id;
-            this.state.log.push(`👑 ${nextHuman.name} trở thành chủ phòng mới!`);
-          }
-        }
-
-        if (this.state.phase === 'AUGMENT_SELECT' && this.state.augmentChoices[playerId]) {
-          const picked = BotAI.pickAugment(this.state.augmentChoices[playerId], player.hand, player.totalPoints);
-          this.selectAugment(playerId, picked.id);
-        } else if (this.state.phase === 'PLAYING' && this.state.currentTurnPlayerId === playerId) {
-          this.triggerBotTurnIfNeeded();
-        }
-
-        this.broadcast();
-      }
-
-      if (!this.hasAnyHuman()) {
-        this.cleanup();
-        if (this.onRoomEmpty) {
-          this.onRoomEmpty(this.state.roomCode);
-        }
-      }
+      this.onPlayerDisconnectTimeout(playerId);
     }, 30000);
 
     this.reconnectTimers.set(playerId, timer);
     return { roomEmpty: false };
+  }
+
+  public onPlayerDisconnectTimeout(playerId: string) {
+    this.reconnectTimers.delete(playerId);
+    const player = this.state.players.find((p) => p.id === playerId);
+    if (!player) return;
+
+    // Hết 30s mà chưa vào lại -> Đánh dấu bot tiếp quản / coi như rời ghế
+    player.isBot = true;
+    player.name = `${player.name} (Bot)`;
+
+    if (this.state.phase !== 'MATCH_OVER') {
+      this.state.log.push(`🤖 Hết thời gian chờ, Bot đã tiếp quản ghế của ${player.name}!`);
+
+      // Nếu người rời là chủ phòng, chuyển quyền chủ phòng cho người thật kế tiếp
+      if (this.hostId === playerId) {
+        const nextHuman = this.state.players.find((pl) => !pl.isBot && pl.id !== playerId);
+        if (nextHuman) {
+          this.hostId = nextHuman.id;
+          this.state.log.push(`👑 ${nextHuman.name} trở thành chủ phòng mới!`);
+        }
+      }
+
+      if (this.state.phase === 'AUGMENT_SELECT' && this.state.augmentChoices[playerId]) {
+        const picked = BotAI.pickAugment(this.state.augmentChoices[playerId], player.hand, player.totalPoints);
+        this.selectAugment(playerId, picked.id);
+      } else if (this.state.phase === 'PLAYING' && this.state.currentTurnPlayerId === playerId) {
+        this.triggerBotTurnIfNeeded();
+      }
+
+      this.broadcast();
+    }
+
+    if (!this.hasAnyHuman()) {
+      this.cleanup();
+      if (this.onRoomEmpty) {
+        this.onRoomEmpty(this.state.roomCode);
+      }
+    }
   }
 
   public handlePlayerReconnect(playerId: string): boolean {
