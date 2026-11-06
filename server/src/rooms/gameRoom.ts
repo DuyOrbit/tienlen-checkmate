@@ -12,6 +12,7 @@ export class GameRoom {
   public rerollCounts: Record<string, number> = {};
   public rerolledSlots: Record<string, boolean[]> = {};
   public isFirstMoveOfRound1Completed: boolean = false;
+  private isMatchSaved: boolean = false;
   public onRoomEmpty?: (roomCode: string) => void;
   private prisma: PrismaClient;
   private onStateChange: (state: MatchState) => void;
@@ -786,6 +787,7 @@ export class GameRoom {
 
     // Tính điểm tổng kết round & Lõi điểm số
     const { roundPoints, notes, checkmateWinner } = finalizeRoundScores(this.state.players);
+    // console.log('[DEBUG endRound] checkmateWinner:', checkmateWinner?.id);
 
     for (const p of this.state.players) {
       const added = roundPoints[p.id] || 0;
@@ -797,16 +799,23 @@ export class GameRoom {
     }
 
     // KIỂM TRA ĐIỀU KIỆN CHECKMATE KẾT THÚC TOÀN TRẬN
+    const isGameOver = Boolean(checkmateWinner);
     if (checkmateWinner) {
       this.state.phase = 'MATCH_OVER';
       this.state.winnerId = checkmateWinner.id;
       this.state.log.push(`👑 CHECKMATE! ${checkmateWinner.name} (đã đủ điều kiện Checkmate) vừa giành Top 1 -> CHÍNH THỨC VÔ ĐỊCH TOÀN TRẬN!`);
-
-      // Lưu kết quả trận đấu vào MySQL Database
-      await this.saveMatchToDb();
     }
 
+    // Broadcast ngay lập tức cho client không phải chờ DB
     this.broadcast();
+
+    // Lưu kết quả trận đấu vào MySQL Database trong background (không chặn phát state cho client)
+    if (isGameOver && !this.isMatchSaved && this.prisma) {
+      this.isMatchSaved = true;
+      this.saveMatchToDb().catch((err: any) => {
+        console.error(`[DB ERROR] Failed to save match in background:`, err?.message || err);
+      });
+    }
   }
 
   private async saveMatchToDb() {

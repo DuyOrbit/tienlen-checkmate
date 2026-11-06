@@ -5,7 +5,7 @@ import { PlayerState, Card } from './types.js';
 import { AUGMENTS_CATALOG, getRandomAugments } from './augments.js';
 import { GameRoom } from '../rooms/gameRoom.js';
 
-function runTests() {
+async function runTests() {
   console.log('=== TIẾN LÊN CHECKMATE ENGINE TEST SUITE ===');
 
   // Test 1: Deck creation & shuffle
@@ -380,7 +380,49 @@ function runTests() {
   }
   console.log('✔ Test 18: Lõi Nano Barrier chặn thối heo: PASSED');
 
+  // Test 19 (B6): Màn Vô địch phát ngay lập tức (không chờ DB lưu xong)
+  let receivedMatchOver = false;
+  let broadcastDelay = -1;
+  const startTime = Date.now();
+  const slowPrismaMock = {
+    match: {
+      create: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return {};
+      },
+    },
+    userStats: { upsert: async () => ({}) },
+  };
+
+  const roomB6 = new GameRoom('TEST-B6', slowPrismaMock as any, (st) => {
+    if (st.phase === 'MATCH_OVER') {
+      receivedMatchOver = true;
+      broadcastDelay = Date.now() - startTime;
+    }
+  });
+  roomB6.initCustomRoom('p1', 'Player 1');
+  roomB6.addPlayer('p2', 'Player 2');
+  roomB6.addPlayer('p3', 'Player 3');
+  roomB6.addPlayer('p4', 'Player 4');
+  const p1B6 = roomB6.state.players[0];
+  p1B6.totalPoints = 16;
+  p1B6.isCheckmate = true;
+  p1B6.rankInRound = 1;
+
+  // Gọi private endRound thông qua trigger kết thúc ván
+  (roomB6 as any).endRound();
+
+  // Đợi 60ms kiểm tra: client phải đã nhận được MATCH_OVER rồi dù DB mất 500ms
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  if (!receivedMatchOver || broadcastDelay >= 300) {
+    throw new Error(`FAIL B6: MATCH_OVER bị chặn bởi DB! receivedMatchOver: ${receivedMatchOver}, delay: ${broadcastDelay}ms (mong đợi < 100ms)`);
+  }
+  console.log(`✔ Test 19: Phát ngay MATCH_OVER không chờ DB (${broadcastDelay}ms): PASSED`);
+
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 
-runTests();
+runTests().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
