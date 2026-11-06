@@ -93,8 +93,13 @@ export const App: React.FC = () => {
   // 2. Connect to Socket.io
   useEffect(() => {
     const s = io(SOCKET_URL, {
-      auth: {
-        token: token || undefined,
+      auth: (cb: (data: { token?: string; guestToken?: string }) => void) => {
+        const curToken = sessionStorage.getItem('tienlen_token');
+        const guestToken = sessionStorage.getItem('tienlen_guest_token');
+        cb({
+          token: curToken || undefined,
+          guestToken: guestToken || undefined,
+        });
       },
       reconnectionAttempts: 10,
       timeout: 3000,
@@ -108,10 +113,13 @@ export const App: React.FC = () => {
       setActionError('');
     });
 
-    s.on('session_init', (data: { playerId: string; playerName: string; isGuest: boolean }) => {
+    s.on('session_init', (data: { playerId: string; playerName: string; isGuest: boolean; guestToken?: string }) => {
       setServerAssignedId(data.playerId);
       if (data.isGuest) {
         sessionStorage.setItem('tienlen_guest_id', data.playerId);
+        if (data.guestToken) {
+          sessionStorage.setItem('tienlen_guest_token', data.guestToken);
+        }
       }
     });
 
@@ -138,7 +146,12 @@ export const App: React.FC = () => {
   // Cập nhật xác thực Socket khi token đăng nhập thay đổi
   useEffect(() => {
     if (socket) {
-      socket.auth = { token: token || undefined };
+      const curToken = sessionStorage.getItem('tienlen_token');
+      const guestToken = sessionStorage.getItem('tienlen_guest_token');
+      socket.auth = {
+        token: curToken || undefined,
+        guestToken: guestToken || undefined,
+      };
       socket.disconnect().connect();
     }
   }, [token]);

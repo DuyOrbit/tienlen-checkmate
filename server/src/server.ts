@@ -150,6 +150,13 @@ function broadcastRoomState(room: GameRoom) {
 
 type ActionCallback = (res: { success: boolean; message?: string; roomCode?: string }) => void;
 
+function sanitizePlayerName(rawName: any, fallback = 'Khách'): string {
+  if (typeof rawName !== 'string') return fallback;
+  const cleaned = rawName.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
+  if (!cleaned) return fallback;
+  return cleaned.substring(0, 20);
+}
+
 // Socket.io handlers
 io.on('connection', (socket) => {
   console.log(`[SOCKET] Client connected: ${socket.id} (${socket.data.playerId}, guest=${socket.data.isGuest})`);
@@ -179,7 +186,7 @@ io.on('connection', (socket) => {
   // 1. Chơi với Bot (Singleplayer / Quick Match)
   socket.on('start_bot_game', (data?: { playerName?: string }) => {
     const playerId = socket.data.playerId;
-    const playerName = !socket.data.isGuest ? socket.data.playerName : (data?.playerName?.trim() || 'Khách');
+    const playerName = !socket.data.isGuest ? socket.data.playerName : sanitizePlayerName(data?.playerName, 'Khách');
     const roomCode = `BOT-${socket.id.substring(0, 5).toUpperCase()}`;
     socket.join(roomCode);
 
@@ -202,9 +209,11 @@ io.on('connection', (socket) => {
   // 2. Tạo Phòng Chờ Bạn Bè (Custom Room)
   socket.on('create_custom_room', (data: { playerName?: string } | undefined, callback?: ActionCallback) => {
     const playerId = socket.data.playerId;
-    const playerName = !socket.data.isGuest ? socket.data.playerName : (data?.playerName?.trim() || 'Khách');
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const roomCode = `CM${randomSuffix}`;
+    const playerName = !socket.data.isGuest ? socket.data.playerName : sanitizePlayerName(data?.playerName, 'Khách');
+    let roomCode = '';
+    do {
+      roomCode = `CM${Math.floor(1000 + Math.random() * 9000)}`;
+    } while (rooms.has(roomCode));
     socket.join(roomCode);
 
     const room = new GameRoom(roomCode, prisma, () => {
@@ -237,7 +246,7 @@ io.on('connection', (socket) => {
       return;
     }
     const playerId = socket.data.playerId;
-    const playerName = !socket.data.isGuest ? socket.data.playerName : (data?.playerName?.trim() || 'Khách');
+    const playerName = !socket.data.isGuest ? socket.data.playerName : sanitizePlayerName(data?.playerName, 'Khách');
 
     socket.join(code);
     socket.data.roomCode = code;
