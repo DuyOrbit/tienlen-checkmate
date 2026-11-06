@@ -1,8 +1,8 @@
 import { createDeck, dealHands, sortCards } from './cardUtils.js';
 import { evaluateCombo, canBeat, checkToiTrang } from './evaluator.js';
-import { handleChopPointTransfer, finalizeRoundScores } from './scoring.js';
+import { handleChopPointTransfer, finalizeRoundScores, handleThoiPenalties } from './scoring.js';
 import { PlayerState, Card } from './types.js';
-import { AUGMENTS_CATALOG } from './augments.js';
+import { AUGMENTS_CATALOG, getRandomAugments } from './augments.js';
 import { GameRoom } from '../rooms/gameRoom.js';
 
 function runTests() {
@@ -171,6 +171,9 @@ function runTests() {
   // Test 12: Đổi Lõi theo từng slot riêng biệt (rerollAugmentSlot)
   const roomReroll = new GameRoom('TEST-REROLL', null as any, () => {});
   roomReroll.initVsBots('user-A', 'Player A');
+  roomReroll.state.phase = 'AUGMENT_SELECT';
+  roomReroll.rerolledSlots['user-A'] = [false, false, false];
+  roomReroll.state.augmentChoices['user-A'] = getRandomAugments(3);
   // Chuyển sang phase AUGMENT_SELECT
   const initialChoiceSlot0 = roomReroll.state.augmentChoices['user-A']?.[0]?.id;
   const initialChoiceSlot1 = roomReroll.state.augmentChoices['user-A']?.[1]?.id;
@@ -333,6 +336,49 @@ function runTests() {
     throw new Error(`FAIL B4: Người kế tiếp sau p0 (là p1) phải cầm vòng mới, nhưng lại là ${roomB4.state.currentTurnPlayerId}!`);
   }
   console.log('✔ Test 17: Vòng đánh không kết thúc sớm khi người về đích thắng trick: PASSED');
+
+  // Test 18 (B5): Lõi Nano Barrier (AUG_CHOP_DEFENSE) phải chặn thối heo cuối ván
+  const pVictim: PlayerState = {
+    id: 'victim',
+    name: 'Victim',
+    isBot: false,
+    avatarSeed: 'bear',
+    hand: [{ id: '2-hearts', rank: '2', suit: 'hearts', rankValue: 15, suitValue: 4, weight: 154 } as Card],
+    rankInRound: 4,
+    totalPoints: 5,
+    activeAugments: [
+      {
+        augment: AUGMENTS_CATALOG.find((a) => a.id === 'AUG_CHOP_DEFENSE')!,
+        roundsRemaining: 2,
+      },
+    ],
+    canPickAugment: true,
+    isCheckmate: false,
+    hasPassed: false,
+    choppedCount: 0,
+    beenChoppedCount: 0,
+  };
+  const pWinner: PlayerState = {
+    ...pVictim,
+    id: 'winner',
+    name: 'Winner',
+    hand: [],
+    rankInRound: 1,
+    totalPoints: 0,
+    activeAugments: [],
+  };
+
+  const thoiEvents = handleThoiPenalties([pVictim, pWinner], pWinner);
+  if (pVictim.totalPoints !== 5) {
+    throw new Error(`FAIL B5: Nano Barrier không chặn thối heo! Điểm bị trừ còn ${pVictim.totalPoints} (mong đợi 5)`);
+  }
+  if (pVictim.activeAugments.length !== 0) {
+    throw new Error('FAIL B5: Nano Barrier phải bị tiêu sau khi kích hoạt chặn thối heo!');
+  }
+  if (!thoiEvents.some((e) => e.amount === 0)) {
+    throw new Error('FAIL B5: Phải có sự kiện thối heo amount = 0 khi có khiên!');
+  }
+  console.log('✔ Test 18: Lõi Nano Barrier chặn thối heo: PASSED');
 
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }

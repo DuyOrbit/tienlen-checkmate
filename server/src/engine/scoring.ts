@@ -2,6 +2,22 @@ import { Combo, PlayerState, PointTransferEvent, Card } from './types.js';
 import { evaluateAugmentBonuses } from './augments.js';
 
 /**
+ * Tìm vị trí Lõi phòng thủ chặn điểm (Khiên Bong Bóng / Nano Barrier)
+ * Lưu ý: AUG_UNDERDOG (Emergency Shield) KHÔNG phải loại chặn điểm, phải bỏ qua.
+ */
+export function findShieldIndex(player: PlayerState): number {
+  return player.activeAugments.findIndex((a) => {
+    const id = a.augment.id;
+    if (id === 'AUG_UNDERDOG') return false; // Lõi an ủi top 4, không phải khiên chặn
+    if (id === 'AUG_SHIELD' || id === 'AUG_CHOP_DEFENSE') return true;
+    const nameLower = a.augment.name.toLowerCase();
+    if (nameLower.includes('nano barrier') || nameLower.includes('khiên bong bóng') || nameLower.includes('khiên chắn')) return true;
+    if (nameLower.includes('barrier')) return true;
+    return false;
+  });
+}
+
+/**
  * Xử lý cướp điểm tức thì khi CHẶT HEO hoặc CHẶT HÀNG
  * THEO ĐÚNG LUẬT TIẾN LÊN MIỀN NAM:
  * - Heo đè Heo (kể cả Heo lớn đè Heo nhỏ) KHÔNG ĐƯỢC COI LÀ CHẶT HEO (không cướp điểm).
@@ -86,16 +102,11 @@ export function handleChopPointTransfer(
     message += ` (Lõi Thợ Săn Heo cướp thêm +1đ!)`;
   }
 
-  // Kiểm tra lõi Phòng thủ (Emergency Shield / Nano Barrier) của victim: Chặn 1 lần mất điểm
-  const shieldIdx = victim.activeAugments.findIndex(
-    (a) =>
-      a.augment.id === 'AUG_SHIELD' ||
-      a.augment.id === 'AUG_CHOP_DEFENSE' ||
-      a.augment.name.toLowerCase().includes('khiên') ||
-      a.augment.name.toLowerCase().includes('barrier')
-  );
+  // Kiểm tra lõi Phòng thủ (Nano Barrier / Khiên Bong Bóng) của victim: Chặn 1 lần mất điểm
+  const shieldIdx = findShieldIndex(victim);
   if (shieldIdx !== -1) {
-    message += ` 🛡️ Khiên Bong Bóng của ${victim.name} đã hấp thụ toàn bộ điểm phạt!`;
+    const shieldName = victim.activeAugments[shieldIdx].augment.name;
+    message += ` 🛡️ [${shieldName}] của ${victim.name} đã hấp thụ toàn bộ điểm phạt!`;
     victim.activeAugments.splice(shieldIdx, 1);
     stealAmount = 0;
     return {
@@ -136,17 +147,16 @@ export function handleThoiPenalties(
     if (p.id === top1Player.id) continue;
     if (p.hand.length === 0) continue;
 
-    const shieldIdx = p.activeAugments.findIndex(
-      (a) => a.augment.id === 'AUG_SHIELD' || a.augment.name.toLowerCase().includes('khiên')
-    );
+    const shieldIdx = findShieldIndex(p);
     if (shieldIdx !== -1) {
+      const shieldName = p.activeAugments[shieldIdx].augment.name;
       p.activeAugments.splice(shieldIdx, 1);
       events.push({
         fromPlayerId: p.id,
         toPlayerId: top1Player.id,
         amount: 0,
         reason: 'THOI_HEO',
-        message: `🛡️ Khiên Bong Bóng đã cứu ${p.name} khỏi bị phạt thối heo/hàng!`,
+        message: `🛡️ [${shieldName}] đã cứu ${p.name} khỏi bị phạt thối heo/hàng!`,
       });
       continue;
     }
