@@ -228,6 +228,27 @@ function runTests() {
   }
   console.log('✔ Test 14: Chủ phòng rời trận -> Chuyển host cho người thật kế tiếp: PASSED');
 
+  // Test 15 (B2): Cả 4 người chơi đều >= 12 điểm (đánh chay) -> Không kẹt ở AUGMENT_SELECT
+  const roomB2 = new GameRoom('TEST-B2', null as any, () => {});
+  roomB2.initCustomRoom('p1', 'Player 1');
+  roomB2.addPlayer('p2', 'Player 2');
+  roomB2.addPlayer('p3', 'Player 3');
+  roomB2.addPlayer('p4', 'Player 4');
+  for (const p of roomB2.state.players) {
+    p.totalPoints = 13;
+    p.canPickAugment = false;
+  }
+  roomB2.state.phase = 'ROUND_END';
+  roomB2.startNewRound();
+
+  if (roomB2.state.phase !== 'PLAYING') {
+    throw new Error(`FAIL B2: Cả 4 người >= 12đ nhưng phase là ${roomB2.state.phase}, không tự chuyển sang PLAYING!`);
+  }
+  if (!roomB2.state.currentTurnPlayerId) {
+    throw new Error('FAIL B2: Thiếu currentTurnPlayerId sau khi chuyển sang PLAYING!');
+  }
+  console.log('✔ Test 15: Cả 4 người >= 12 điểm tự động chuyển sang PLAYING: PASSED');
+
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 

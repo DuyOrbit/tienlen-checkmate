@@ -285,6 +285,16 @@ export class GameRoom {
       }
     }
 
+    // Nếu không còn ai cần chọn Lõi (ví dụ cả 4 người đều >= 12đ hoặc bot đã chọn hết):
+    // Tự động chuyển ngay sang phase PLAYING
+    if (this.state.phase === 'AUGMENT_SELECT') {
+      const remainingToPick = this.state.players.filter((p) => p.canPickAugment && this.state.augmentChoices[p.id]);
+      if (remainingToPick.length === 0) {
+        this.beginPlayingPhase();
+        return;
+      }
+    }
+
     this.broadcast();
   }
 
