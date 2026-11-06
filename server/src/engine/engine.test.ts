@@ -210,7 +210,25 @@ function runTests() {
   console.assert(nextTrickMove.success === true, 'Vòng mới sau nước mở màn không được đòi 3 bích nữa');
   console.log('✔ Test 13: Nước đi đầu tiên Round 1 bắt buộc có 3 Bích và các vòng sau không bị kẹt: PASSED');
 
-  console.log('🎉 TOÀN BỘ 13 BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
+  // Test 14 (B1): Chủ phòng rời giữa trận -> Chuyển host cho người thật kế tiếp
+  const roomB1 = new GameRoom('TEST-B1', null as any, () => {});
+  roomB1.initCustomRoom('h1', 'Chủ Phòng H1');
+  roomB1.addPlayer('p2', 'Người Chơi P2');
+  roomB1.addPlayer('p3', 'Người Chơi P3');
+  roomB1.addPlayer('p4', 'Người Chơi P4');
+  roomB1.state.phase = 'ROUND_END';
+
+  // h1 rời phòng
+  roomB1.handlePlayerLeave('h1');
+  if (roomB1.isHost('h1')) {
+    throw new Error('FAIL B1: h1 đã rời và thành Bot nhưng vẫn là host!');
+  }
+  if (!roomB1.isHost('p2')) {
+    throw new Error('FAIL B1: p2 phải là host mới nhưng isHost(p2) lại là false!');
+  }
+  console.log('✔ Test 14: Chủ phòng rời trận -> Chuyển host cho người thật kế tiếp: PASSED');
+
+  console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 
 runTests();

@@ -585,7 +585,7 @@ export class GameRoom {
   }
 
   public isHost(playerId: string): boolean {
-    return this.hostId === playerId || this.state.players[0]?.id === playerId;
+    return this.hostId === playerId;
   }
 
   public hasAnyHuman(): boolean {
@@ -647,6 +647,16 @@ export class GameRoom {
       p.isBot = true;
       p.name = `${p.name} (Bot)`;
       this.state.log.push(`🤖 ${p.name} đã rời phòng, Bot tiếp quản ghế!`);
+
+      // Nếu người rời là chủ phòng, chuyển quyền chủ phòng cho người thật kế tiếp
+      if (this.hostId === playerId) {
+        const nextHuman = this.state.players.find((pl) => !pl.isBot && pl.id !== playerId);
+        if (nextHuman) {
+          this.hostId = nextHuman.id;
+          this.state.log.push(`👑 ${nextHuman.name} trở thành chủ phòng mới!`);
+        }
+      }
+
       if (this.state.phase === 'AUGMENT_SELECT' && this.state.augmentChoices[playerId]) {
         const picked = BotAI.pickAugment(this.state.augmentChoices[playerId], p.hand, p.totalPoints);
         this.selectAugment(playerId, picked.id);
@@ -684,6 +694,15 @@ export class GameRoom {
         player.isBot = true;
         player.name = `${player.name} (Bot)`;
         this.state.log.push(`🤖 Hết thời gian chờ, Bot đã tiếp quản ghế của ${player.name}!`);
+
+        // Nếu người rời là chủ phòng, chuyển quyền chủ phòng cho người thật kế tiếp
+        if (this.hostId === playerId) {
+          const nextHuman = this.state.players.find((pl) => !pl.isBot && pl.id !== playerId);
+          if (nextHuman) {
+            this.hostId = nextHuman.id;
+            this.state.log.push(`👑 ${nextHuman.name} trở thành chủ phòng mới!`);
+          }
+        }
 
         if (this.state.phase === 'AUGMENT_SELECT' && this.state.augmentChoices[playerId]) {
           const picked = BotAI.pickAugment(this.state.augmentChoices[playerId], player.hand, player.totalPoints);
