@@ -79,3 +79,23 @@ Trò chơi bài **Tiến Lên Miền Nam** phong cách **Cozy Discord "Poker Nig
 - Tương thích hoàn hảo cả khi người dùng truy cập:
   - Trực tiếp qua port 3001: `http://localhost:3001`
   - Hoặc qua WampServer: `http://localhost/tienlen`
+
+
+---
+
+## 5. Danh Mục Lõi Điểm Số & Cơ Chế Phạt (Cân Bằng Game)
+
+| Mã Lõi | Tên Lõi | Phẩm cấp | Thời hạn | Hiệu ứng Thưởng (Top 1) | ⚠️ Hình Phạt nếu Thất Bại (Trượt Top 1) |
+| :--- | :--- | :---: | :---: | :--- | :--- |
+| `AUG_TOP1_BOOST` | **Overclock Top 1** | RARE | 1 round | +2đ (tổng 6đ) | **Mất trắng điểm round này (0đ)** kể cả khi về Top 2 hay Top 3. |
+| `AUG_HIGH_ROLLER` | **Neon Jackpot** | EPIC | 1 round | +3đ (tổng 7đ) | **Nhận 0đ round này VÀ bị trừ -2đ điểm tổng** (sàn 0đ). |
+| `AUG_GAMBIT` | **Hyper Roulette** | EPIC | 1 round | +4đ (tổng 8đ) | **Nhận 0đ round này VÀ mất -2đ cống nạp cho người về Top 1!** |
+| `AUG_DOUBLE_TROUBLE` | **Twin Turbo** | RARE | 2 round | +1đ (tổng 5đ) nếu Top 1 | Nếu về Top 4 (bét): **bị trừ -1đ điểm tổng**. |
+| `AUG_COMEBACK` | **Phoenix Core** | COMMON | 1 round | +1đ an ủi nếu về Top 3/4 | — (Hỗ trợ người bài xấu không bị mất cân bằng) |
+| `AUG_HUNTER` | **Bounty Hunter** | EPIC | 2 round | Cướp thêm +1đ khi chặt heo | — |
+| `AUG_CHOP_DEFENSE` | **Nano Barrier** | RARE | 2 round | Chặn 1 lần mất điểm do bị chặt hoặc thối heo | — |
+| `AUG_SEC_SAFE` | **Pursuit Protocol** | COMMON | 2 round | +1đ nếu về Top 2 | — |
+| `AUG_SURVIVOR` | **Stealth Matrix** | COMMON | 2 round | +1đ nếu về Top 2 hoặc Top 3 | — |
+| `AUG_PACIFIST` | **Zero Threat** | RARE | 1 round | +1đ nếu không chặt ai & không bị chặt | — |
+| `AUG_UNDERDOG` | **Emergency Shield** | COMMON | 1 round | +1đ an ủi nếu về Top 4 | — |
+| `AUG_CLUTCH` | **Last Stand (Lật Kèo)** | EPIC | 1 round | +3đ nếu điểm $\le 4$ mà về Top 1 hoặc 2 | — |

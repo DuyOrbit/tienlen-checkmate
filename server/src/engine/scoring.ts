@@ -198,6 +198,7 @@ export function finalizeRoundScores(players: PlayerState[]): {
   const roundPoints: Record<string, number> = {};
   const notes: Record<string, string[]> = {};
   let checkmateWinner: PlayerState | null = null;
+  const top1Player = players.find((p) => p.rankInRound === 1) || null;
 
   for (const p of players) {
     let base = 0;
@@ -218,6 +219,19 @@ export function finalizeRoundScores(players: PlayerState[]): {
       const bonus = evaluateAugmentBonuses(p, base);
       base = bonus.finalPoints;
       notes[p.id] = bonus.bonusNotes;
+
+      // Xử lý phạt trừ điểm tổng (Neon Jackpot, Twin Turbo)
+      if (bonus.totalPointPenalty && bonus.totalPointPenalty > 0) {
+        const penalty = Math.min(p.totalPoints, bonus.totalPointPenalty);
+        p.totalPoints = Math.max(0, p.totalPoints - penalty);
+      }
+
+      // Xử lý cống nạp điểm cho Top 1 (Hyper Roulette)
+      if (bonus.transferredToTop1 && bonus.transferredToTop1 > 0 && top1Player && top1Player.id !== p.id) {
+        const transfer = Math.min(p.totalPoints, bonus.transferredToTop1);
+        p.totalPoints = Math.max(0, p.totalPoints - transfer);
+        top1Player.totalPoints += transfer;
+      }
     }
 
     p.totalPoints += base;

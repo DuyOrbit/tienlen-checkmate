@@ -481,6 +481,72 @@ async function runTests() {
   }
   console.log('✔ Test 21: Bot tìm nước đỡ Sám cô, Sảnh có đôi xen kẽ, 3 đôi thông và 4 đôi thông: PASSED');
 
+  // Test 22: Kiểm tra cơ chế Phạt khi trượt Top 1 của Lõi Top 1 (Overclock, Neon Jackpot, Hyper Roulette)
+  const playerTop1: PlayerState = {
+    id: 'pWinner',
+    name: 'Player Winner',
+    isBot: false,
+    avatarSeed: 'W',
+    hand: [],
+    rankInRound: 1,
+    totalPoints: 5,
+    activeAugments: [],
+    canPickAugment: true,
+    isCheckmate: false,
+    hasPassed: false,
+    choppedCount: 0,
+    beenChoppedCount: 0,
+  };
+
+  const playerOverclockFail: PlayerState = {
+    ...playerTop1,
+    id: 'pOC',
+    name: 'Player Overclock',
+    rankInRound: 2, // Về nhì (vốn được 2đ)
+    totalPoints: 6,
+    activeAugments: [{ augment: AUGMENTS_CATALOG.find((a) => a.id === 'AUG_TOP1_BOOST')!, roundsRemaining: 1 }],
+  };
+
+  const playerJackpotFail: PlayerState = {
+    ...playerTop1,
+    id: 'pJP',
+    name: 'Player Jackpot',
+    rankInRound: 3, // Về ba (vốn được 1đ)
+    totalPoints: 6,
+    activeAugments: [{ augment: AUGMENTS_CATALOG.find((a) => a.id === 'AUG_HIGH_ROLLER')!, roundsRemaining: 1 }],
+  };
+
+  const playerRouletteFail: PlayerState = {
+    ...playerTop1,
+    id: 'pRL',
+    name: 'Player Roulette',
+    rankInRound: 4, // Về bét (vốn được 0đ)
+    totalPoints: 6,
+    activeAugments: [{ augment: AUGMENTS_CATALOG.find((a) => a.id === 'AUG_GAMBIT')!, roundsRemaining: 1 }],
+  };
+
+  const resT22 = finalizeRoundScores([playerTop1, playerOverclockFail, playerJackpotFail, playerRouletteFail]);
+
+  // Overclock thất bại: Nhận 0đ thay vì 2đ base, điểm tổng vẫn là 6
+  if (resT22.roundPoints['pOC'] !== 0 || playerOverclockFail.totalPoints !== 6) {
+    throw new Error(`FAIL T22: Overclock trượt Top 1 phải nhận 0đ round! Got roundPoints: ${resT22.roundPoints['pOC']}, totalPoints: ${playerOverclockFail.totalPoints}`);
+  }
+
+  // Neon Jackpot thất bại: Nhận 0đ round và bị trừ 2đ tổng điểm (6 - 2 = 4đ)
+  if (resT22.roundPoints['pJP'] !== 0 || playerJackpotFail.totalPoints !== 4) {
+    throw new Error(`FAIL T22: Neon Jackpot trượt Top 1 phải nhận 0đ round và bị trừ -2đ điểm tổng! Got roundPoints: ${resT22.roundPoints['pJP']}, totalPoints: ${playerJackpotFail.totalPoints}`);
+  }
+
+  // Hyper Roulette thất bại: Nhận 0đ round, bị trừ 2đ tổng (6 - 2 = 4đ) và chuyển 2đ cho Top 1!
+  // Player Top 1 nhận: 5 (ban đầu) + 4 (Top 1) + 2 (cống nộp từ Roulette) = 11đ!
+  if (resT22.roundPoints['pRL'] !== 0 || playerRouletteFail.totalPoints !== 4) {
+    throw new Error(`FAIL T22: Hyper Roulette trượt Top 1 phải nhận 0đ round và mất 2đ cống nạp! Got total: ${playerRouletteFail.totalPoints}`);
+  }
+  if (playerTop1.totalPoints !== 11) {
+    throw new Error(`FAIL T22: Player Top 1 phải được nhận +2đ cống nạp từ Hyper Roulette! Got total: ${playerTop1.totalPoints}`);
+  }
+  console.log('✔ Test 22: Cơ chế Phạt khi trượt Top 1 (Overclock, Neon Jackpot, Hyper Roulette): PASSED');
+
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }
 
