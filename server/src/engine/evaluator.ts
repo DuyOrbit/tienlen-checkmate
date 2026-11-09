@@ -96,12 +96,18 @@ function isConsecutivePairs(cards: Card[], pairCount: number): boolean {
 
 /**
  * Kiểm tra xem combo mới có thể đè/chặt được combo hiện tại trên bàn không
+ * hasRankSupreme: Nếu kích hoạt Lõi "Đè Bất Chấp Chất" (AUG_RANK_SUPREME), các bộ Đôi hoặc Sám cô cùng số luôn được coi là lớn hơn đối thủ.
  */
-export function canBeat(incoming: Combo, current: Combo): boolean {
+export function canBeat(incoming: Combo, current: Combo, hasRankSupreme: boolean = false): boolean {
   if (incoming.type === 'INVALID') return false;
 
   // 1. Trường hợp bình thường (cùng loại, cùng độ dài)
   if (incoming.type === current.type && incoming.length === current.length) {
+    if (hasRankSupreme && (incoming.type === 'PAIR' || incoming.type === 'TRIPLE')) {
+      if (incoming.highestCard.rankValue === current.highestCard.rankValue) {
+        return true;
+      }
+    }
     return incoming.highestCard.weight > current.highestCard.weight;
   }
 

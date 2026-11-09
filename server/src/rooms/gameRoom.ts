@@ -422,7 +422,6 @@ export class GameRoom {
 
   public playCards(playerId: string, cardIds: string[]): { success: boolean; message: string } {
     if (this.state.phase !== 'PLAYING') return { success: false, message: 'Chưa phải lúc đánh bài' };
-    if (this.state.currentTurnPlayerId !== playerId) return { success: false, message: 'Chưa tới lượt bạn' };
 
     const player = this.state.players.find((p) => p.id === playerId);
     if (!player) return { success: false, message: 'Không tìm thấy người chơi' };
@@ -432,9 +431,80 @@ export class GameRoom {
       return { success: false, message: 'Quân bài không hợp lệ' };
     }
 
-    const incomingCombo = evaluateCombo(selectedCards);
+    const hasRankSupreme = player.activeAugments.some((a) => a.augment.id === 'AUG_RANK_SUPREME');
+    const hasAmbush = player.activeAugments.some((a) => a.augment.id === 'AUG_AMBUSH');
+    const hasStowaway = player.activeAugments.some((a) => a.augment.id === 'AUG_STOWAWAY');
+
+    let incomingCombo = evaluateCombo(selectedCards);
+    let isStowaway = false;
+    let stowawayTrashCard: Card | null = null;
+
+    // Lõi Kẹp Rác Tẩu Thoát (AUG_STOWAWAY): khi tay bài <= 3 lá, kẹp 1 lá rác nhỏ nhất vào bộ hợp lệ
+    if (incomingCombo.type === 'INVALID' && hasStowaway && player.hand.length <= 3 && selectedCards.length >= 2) {
+      const sorted = [...selectedCards].sort((a, b) => a.weight - b.weight);
+      const trash = sorted[0];
+      const remaining = sorted.slice(1);
+      const subCombo = evaluateCombo(remaining);
+      if (subCombo.type !== 'INVALID') {
+        incomingCombo = subCombo;
+        isStowaway = true;
+        stowawayTrashCard = trash;
+      }
+    }
+
     if (incomingCombo.type === 'INVALID') {
       return { success: false, message: 'Bộ bài không hợp lệ theo luật Tiến Lên Miền Nam' };
+    }
+
+    // Kiểm tra tính năng Phục Kích Chờ Heo (AUG_AMBUSH) hoặc 4 Đôi Thông nhảy cóc lượt
+    const isTargetHeoOrHang = Boolean(
+      this.state.lastValidMove &&
+      (
+        (this.state.lastValidMove.combo.type === 'SINGLE' && this.state.lastValidMove.combo.cards[0].rankValue === 15) ||
+        (this.state.lastValidMove.combo.type === 'PAIR' && this.state.lastValidMove.combo.cards[0].rankValue === 15) ||
+        this.state.lastValidMove.combo.type === 'THREE_PAIRS_SEQ' ||
+        this.state.lastValidMove.combo.type === 'FOUR_OF_A_KIND' ||
+        this.state.lastValidMove.combo.type === 'FOUR_PAIRS_SEQ'
+      )
+    );
+    const isIncomingHang =
+      incomingCombo.type === 'THREE_PAIRS_SEQ' ||
+      incomingCombo.type === 'FOUR_OF_A_KIND' ||
+      incomingCombo.type === 'FOUR_PAIRS_SEQ';
+    const isChopAction =
+      Boolean(this.state.lastValidMove) &&
+      isTargetHeoOrHang &&
+      isIncomingHang &&
+      canBeat(incomingCombo, this.state.lastValidMove!.combo, hasRankSupreme);
+
+    const canJumpInWithFourPairs = incomingCombo.type === 'FOUR_PAIRS_SEQ' && isChopAction;
+    const canJumpInWithAmbush = hasAmbush && isChopAction;
+
+    if (this.state.currentTurnPlayerId !== playerId) {
+      if (canJumpInWithAmbush || canJumpInWithFourPairs) {
+        if (this.botTimeout) {
+          clearTimeout(this.botTimeout);
+          this.botTimeout = null;
+        }
+        this.state.currentTurnPlayerId = playerId;
+        player.hasPassed = false;
+        if (canJumpInWithAmbush && incomingCombo.type !== 'FOUR_PAIRS_SEQ') {
+          this.state.log.push(`🥷 ${player.name} kích hoạt [Phục Kích Chờ Heo]: Phá lệ nhảy vào chặt Heo!`);
+        } else if (canJumpInWithFourPairs) {
+          this.state.log.push(`🔥 ${player.name} xuất 4 Đôi Thông phá lệ nhảy vào chặt!`);
+        }
+      } else {
+        return { success: false, message: 'Chưa tới lượt bạn' };
+      }
+    } else if (player.hasPassed) {
+      if (canJumpInWithAmbush || canJumpInWithFourPairs) {
+        player.hasPassed = false;
+        if (canJumpInWithAmbush && incomingCombo.type !== 'FOUR_PAIRS_SEQ') {
+          this.state.log.push(`🥷 ${player.name} kích hoạt [Phục Kích Chờ Heo]: Phá lệ nhảy vào chặt Heo!`);
+        }
+      } else {
+        return { success: false, message: 'Bạn đã bỏ lượt trong vòng này' };
+      }
     }
 
     // Kiểm tra luật mở màn Round 1: Nước đi đầu tiên bắt buộc phải chứa lá 3 Bích (3-spades)
@@ -447,7 +517,7 @@ export class GameRoom {
     // Nếu có nước đi trước đó trên bàn trong vòng này
     if (this.state.lastValidMove) {
       const currentCombo = this.state.lastValidMove.combo;
-      if (!canBeat(incomingCombo, currentCombo)) {
+      if (!canBeat(incomingCombo, currentCombo, hasRankSupreme)) {
         return { success: false, message: 'Bộ bài không đủ lớn để đè nước đi trước' };
       }
 
@@ -462,17 +532,26 @@ export class GameRoom {
       }
     }
 
-    // Đánh bài thành công: Rút khỏi tay người chơi
+    // Đánh bài thành công: Rút khỏi tay người chơi (kể cả lá rác nếu Kẹp Rác Tẩu Thoát)
     player.hand = player.hand.filter((c) => !cardIds.includes(c.id));
     this.isFirstMoveOfRound1Completed = true;
     this.state.lastValidMove = {
       playerId: player.id,
       playerName: player.name,
-      cards: selectedCards,
+      cards: isStowaway ? incomingCombo.cards : selectedCards,
       combo: incomingCombo,
       timestamp: Date.now(),
     };
-    this.state.log.push(`${player.name} đánh: ${selectedCards.map((c) => `${c.rank}${c.suit[0].toUpperCase()}`).join(' ')}`);
+
+    if (isStowaway && stowawayTrashCard) {
+      this.state.log.push(
+        `📦 ${player.name} kích hoạt [Kẹp Rác Tẩu Thoát]: Đánh bộ ${incomingCombo.cards
+          .map((c) => `${c.rank}${c.suit[0].toUpperCase()}`)
+          .join(' ')} kèm tống khứ rác ${stowawayTrashCard.rank}${stowawayTrashCard.suit[0].toUpperCase()}!`
+      );
+    } else {
+      this.state.log.push(`${player.name} đánh: ${selectedCards.map((c) => `${c.rank}${c.suit[0].toUpperCase()}`).join(' ')}`);
+    }
 
     // Kiểm tra hết bài (Về đích)
     if (player.hand.length === 0) {

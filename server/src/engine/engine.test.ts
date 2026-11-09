@@ -545,7 +545,77 @@ async function runTests() {
   if (playerTop1.totalPoints !== 11) {
     throw new Error(`FAIL T22: Player Top 1 phải được nhận +2đ cống nạp từ Hyper Roulette! Got total: ${playerTop1.totalPoints}`);
   }
-  console.log('✔ Test 22: Cơ chế Phạt khi trượt Top 1 (Overclock, Neon Jackpot, Hyper Roulette): PASSED');
+  // Test 23: Kiểm tra 4 Lõi Can Thiệp Trực Tiếp Vào Ván Đấu (AUG_RANK_SUPREME, AUG_SCOUT_PIG, AUG_AMBUSH, AUG_STOWAWAY)
+  // 1. AUG_RANK_SUPREME (Đè Bất Chấp Chất: cùng số luôn đè)
+  const pair5Red = evaluateCombo([
+    deck.find((c) => c.rank === '5' && c.suit === 'diamonds')!,
+    deck.find((c) => c.rank === '5' && c.suit === 'hearts')!,
+  ]);
+  const pair5Black = evaluateCombo([
+    deck.find((c) => c.rank === '5' && c.suit === 'spades')!,
+    deck.find((c) => c.rank === '5' && c.suit === 'clubs')!,
+  ]);
+  // Bình thường: Đôi 5 đen không thể đè đôi 5 đỏ
+  if (canBeat(pair5Black, pair5Red, false)) {
+    throw new Error('FAIL T23: Đôi 5 đen không được đè đôi 5 đỏ nếu không có Lõi Đè Bất Chấp Chất!');
+  }
+  // Khi có Lõi Đè Bất Chấp Chất: Đôi 5 đen đè được đôi 5 đỏ
+  if (!canBeat(pair5Black, pair5Red, true)) {
+    throw new Error('FAIL T23: Lõi Đè Bất Chấp Chất phải cho phép Đôi 5 đen đè Đôi 5 đỏ!');
+  }
+
+  // Sám cô cùng số:
+  const triple7Small = evaluateCombo([
+    deck.find((c) => c.rank === '7' && c.suit === 'spades')!,
+    deck.find((c) => c.rank === '7' && c.suit === 'clubs')!,
+    deck.find((c) => c.rank === '7' && c.suit === 'diamonds')!,
+  ]);
+  const triple7Big = evaluateCombo([
+    deck.find((c) => c.rank === '7' && c.suit === 'spades')!,
+    deck.find((c) => c.rank === '7' && c.suit === 'clubs')!,
+    deck.find((c) => c.rank === '7' && c.suit === 'hearts')!,
+  ]);
+  if (canBeat(triple7Small, triple7Big, false)) {
+    throw new Error('FAIL T23: Sám 7 nhỏ không thể đè sám 7 lớn bình thường!');
+  }
+  if (!canBeat(triple7Small, triple7Big, true)) {
+    throw new Error('FAIL T23: Lõi Đè Bất Chấp Chất phải cho phép Sám 7 nhỏ đè Sám 7 lớn!');
+  }
+
+  // 2. AUG_SCOUT_PIG (Heo Thử Lửa: nếu bị chặt Heo đầu tiên thì không mất điểm)
+  const chopperState: PlayerState = {
+    ...playerTop1,
+    id: 'chopper1',
+    name: 'Chopper Pro',
+    totalPoints: 0,
+    activeAugments: [],
+  };
+  const scoutPigVictim: PlayerState = {
+    ...playerTop1,
+    id: 'victim1',
+    name: 'Victim Scout',
+    totalPoints: 5,
+    activeAugments: [{ augment: AUGMENTS_CATALOG.find((a) => a.id === 'AUG_SCOUT_PIG')!, roundsRemaining: 1 }],
+  };
+  const playedHeoRed = evaluateCombo([deck.find((c) => c.rank === '2' && c.suit === 'hearts')!]);
+  const quadChop = evaluateCombo([c3s, c3c, c3d, deck.find((c) => c.rank === '3' && c.suit === 'hearts')!]);
+
+  const chopResult = handleChopPointTransfer(chopperState, scoutPigVictim, quadChop, playedHeoRed);
+  if (!chopResult || chopResult.amount !== 0 || scoutPigVictim.totalPoints !== 5) {
+    throw new Error(`FAIL T23: Heo Thử Lửa (AUG_SCOUT_PIG) phải chặn hoàn toàn điểm bị cướp khi bị chặt heo! Got amount: ${chopResult?.amount}, totalPoints: ${scoutPigVictim.totalPoints}`);
+  }
+  if (scoutPigVictim.activeAugments.some((a) => a.augment.id === 'AUG_SCOUT_PIG')) {
+    throw new Error('FAIL T23: Lõi Heo Thử Lửa phải tự tiêu hao (splice) sau khi kích hoạt!');
+  }
+
+  // 3. AUG_STOWAWAY và AUG_AMBUSH có trong AUGMENTS_CATALOG
+  const augAmbush = AUGMENTS_CATALOG.find((a) => a.id === 'AUG_AMBUSH');
+  const augStowaway = AUGMENTS_CATALOG.find((a) => a.id === 'AUG_STOWAWAY');
+  if (!augAmbush || !augStowaway) {
+    throw new Error('FAIL T23: Thiếu AUG_AMBUSH hoặc AUG_STOWAWAY trong AUGMENTS_CATALOG!');
+  }
+
+  console.log('✔ Test 23: 4 Lõi Can Thiệp Ván Đấu (Rank Supreme, Scout Pig, Ambush, Stowaway): PASSED');
 
   console.log('🎉 TOÀN BỘ BÀI KIỂM THỬ ĐÃ VƯỢT QUA 100%!');
 }

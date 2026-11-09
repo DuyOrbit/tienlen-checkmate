@@ -52,6 +52,58 @@ export const AugmentModal: React.FC<AugmentModalProps> = ({
     const id = aug.id.toLowerCase();
     const name = aug.name.toLowerCase();
 
+    if (id.includes('ambush') || name.includes('phục kích')) {
+      return {
+        category: 'PHỤC KÍCH',
+        badgeBg: 'bg-[#831843]',
+        badgeText: 'text-[#fce7f3]',
+        cardBg: 'bg-[#fdf2f8]',
+        icon: '🥷',
+        iconBg: 'bg-[#fbcfe8]',
+        headline: 'Phá lệ nhảy vào chặt Heo',
+        highlightText: aug.description || 'Dù đã Bỏ Lượt ở vòng này, bạn vẫn có thể nhảy vào chặt Heo bằng Hàng!',
+        footerTag: 'Bất ngờ lật kèo (1 round)',
+      };
+    }
+    if (id.includes('stowaway') || name.includes('kẹp rác')) {
+      return {
+        category: 'TẨU THOÁT',
+        badgeBg: 'bg-[#0f766e]',
+        badgeText: 'text-[#ccfbf1]',
+        cardBg: 'bg-[#ccfbf1]',
+        icon: '📦',
+        iconBg: 'bg-[#99f6e4]',
+        headline: 'Kẹp rác tẩu thoát (bài <= 3)',
+        highlightText: aug.description || 'Khi còn <= 3 lá: kẹp 1 lá rác nhỏ nhất vào bộ hợp lệ để đánh ra!',
+        footerTag: 'Tẩu thoát ngoạn mục (1 round)',
+      };
+    }
+    if (id.includes('scout_pig') || name.includes('thử lửa')) {
+      return {
+        category: 'BẢO HIỂM',
+        badgeBg: 'bg-[#1e3a8a]',
+        badgeText: 'text-[#dbeafe]',
+        cardBg: 'bg-[#eff6ff]',
+        icon: '🛡️',
+        iconBg: 'bg-[#bfdbfe]',
+        headline: 'Heo đầu tiên không mất điểm',
+        highlightText: aug.description || 'Lá Heo (2) đầu tiên đánh ra nếu bị chặt: Không bị cướp điểm nào!',
+        footerTag: 'Thử lửa an toàn (1 round)',
+      };
+    }
+    if (id.includes('rank_supreme') || name.includes('bất chấp chất')) {
+      return {
+        category: 'ÁP ĐẢO',
+        badgeBg: 'bg-[#701a75]',
+        badgeText: 'text-[#fae8ff]',
+        cardBg: 'bg-[#fdf4ff]',
+        icon: '👑',
+        iconBg: 'bg-[#f5d0fe]',
+        headline: 'Đôi & Sám cô cùng số luôn đè',
+        highlightText: aug.description || 'So sánh Đôi hoặc Sám cùng số: Bài bạn luôn tính là chất lớn hơn và đè đối thủ!',
+        footerTag: 'Hiệu lực 2 round',
+      };
+    }
     if (id.includes('high_roller') || name.includes('jackpot') || name.includes('neon')) {
       return {
         category: 'ĐỘT BIẾN',

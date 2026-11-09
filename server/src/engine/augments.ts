@@ -97,6 +97,38 @@ export const AUGMENTS_CATALOG: Augment[] = [
     icon: 'ShieldCheck',
     rarity: 'RARE',
   },
+  {
+    id: 'AUG_AMBUSH',
+    name: 'Phục Kích Chờ Heo',
+    description: 'Dù đã Bỏ Lượt ở vòng này, nếu có người đánh ra Heo (2), bạn được quyền phá lệ nhảy vào để CHẶT HEO ĐÓ bằng Hàng! (1 round)',
+    durationRounds: 1,
+    icon: 'Target',
+    rarity: 'RARE',
+  },
+  {
+    id: 'AUG_STOWAWAY',
+    name: 'Kẹp Rác Tẩu Thoát',
+    description: 'Khi bài còn từ 3 lá trở xuống: được quyền kẹp thêm 1 lá bài rác nhỏ nhất đi kèm vào bất kỳ bộ hợp lệ nào bạn đánh ra để tẩu thoát! (1 round)',
+    durationRounds: 1,
+    icon: 'Package',
+    rarity: 'EPIC',
+  },
+  {
+    id: 'AUG_SCOUT_PIG',
+    name: 'Heo Thử Lửa',
+    description: 'Lá Heo (2) đầu tiên bạn đánh ra trong ván: nếu không may bị đối thủ chặt, bạn KHÔNG BỊ CƯỚP ĐIỂM (đối thủ chỉ cướp được vòng bài). (1 round)',
+    durationRounds: 1,
+    icon: 'Shield',
+    rarity: 'RARE',
+  },
+  {
+    id: 'AUG_RANK_SUPREME',
+    name: 'Đè Bất Chấp Chất',
+    description: 'Khi so sánh Đôi hoặc Sám Cô cùng số, bộ bài của bạn luôn được coi là có chất lớn hơn đối thủ và được quyền đè bài! (2 round)',
+    durationRounds: 2,
+    icon: 'Award',
+    rarity: 'RARE',
+  },
 ];
 
 /**

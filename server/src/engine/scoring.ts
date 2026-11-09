@@ -102,6 +102,24 @@ export function handleChopPointTransfer(
     message += ` (Lõi Thợ Săn Heo cướp thêm +1đ!)`;
   }
 
+  // Kiểm tra Lõi Heo Thử Lửa (AUG_SCOUT_PIG) của victim: nếu bị chặt Heo, chặn cướp điểm
+  const scoutPigIdx = victim.activeAugments.findIndex(
+    (a) => a.augment.id === 'AUG_SCOUT_PIG' || a.augment.name.toLowerCase().includes('heo thử lửa')
+  );
+  if (scoutPigIdx !== -1 && currentCombo.cards.some((c) => c.rankValue === 15)) {
+    const pigAugName = victim.activeAugments[scoutPigIdx].augment.name;
+    message += ` 🛡️ [${pigAugName}] của ${victim.name} kích hoạt: Bị chặt nhưng không bị cướp điểm!`;
+    victim.activeAugments.splice(scoutPigIdx, 1);
+    stealAmount = 0;
+    return {
+      fromPlayerId: victim.id,
+      toPlayerId: chopper.id,
+      amount: 0,
+      reason,
+      message,
+    };
+  }
+
   // Kiểm tra lõi Phòng thủ (Nano Barrier / Khiên Bong Bóng) của victim: Chặn 1 lần mất điểm
   const shieldIdx = findShieldIndex(victim);
   if (shieldIdx !== -1) {
